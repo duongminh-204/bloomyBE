@@ -1,36 +1,70 @@
+using Bloomy.Data;
+using Bloomy.Models;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
-namespace BloomyBE
+var builder = WebApplication.CreateBuilder(args);
+
+//  SERVICES 
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+//  CORS 
+builder.Services.AddCors(options =>
 {
-    public class Program
+    options.AddPolicy("AllowFrontend", policy =>
     {
-        public static void Main(string[] args)
-        {
-            var builder = WebApplication.CreateBuilder(args);
+        policy.WithOrigins(
+                "http://localhost:5174",
+                "http://localhost:3000",
+                "http://localhost:5173",
+                "http://localhost:5000"
 
-            // Add services to the container.
+            )
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
+    });
+});
 
-            builder.Services.AddControllers();
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-            builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+// Database
+builder.Services.AddDbContext<BloomyDbContext>(options =>
+{
+    options.UseSqlServer(builder.Configuration.GetConnectionString("ConnectionString"));
+});
 
-            var app = builder.Build();
-
-            // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment())
-            {
-                app.UseSwagger();
-                app.UseSwaggerUI();
-            }
-
-            app.UseHttpsRedirection();
-
-            app.UseAuthorization();
+// Repositories & Services
 
 
-            app.MapControllers();
 
-            app.Run();
-        }
-    }
+builder.Services.AddAuthorization();
+
+//  BUILD
+var app = builder.Build();
+
+
+
+//MIDDLEWARE 
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+    app.UseDeveloperExceptionPage();
 }
+
+
+app.UseCors("AllowFrontend");
+
+
+app.UseStaticFiles();
+
+// app.UseHttpsRedirection();   
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
