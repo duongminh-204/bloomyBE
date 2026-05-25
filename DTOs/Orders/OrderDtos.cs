@@ -59,6 +59,26 @@ namespace Bloomy.DTOs.Orders
         public string? Notes { get; set; }
     }
 
+    public class UpdateInternalNotesDto
+    {
+        public string InternalNotes { get; set; } = string.Empty;
+    }
+
+    public class ShopOwnerRescheduleDto
+    {
+        public DateTime EventDate { get; set; }
+        public string SetupTime { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public string District { get; set; } = string.Empty;
+        public string? Notes { get; set; }
+    }
+
+    public class HandleCustomerRequestDto
+    {
+        public bool Approved { get; set; }
+        public string? Notes { get; set; }
+    }
+
     public class OrderDto
     {
         public Guid Id { get; set; }
@@ -80,7 +100,12 @@ namespace Bloomy.DTOs.Orders
         public OrderStatus Status { get; set; }
         public string StatusLabel { get; set; } = string.Empty;
         public string Notes { get; set; } = string.Empty;
+        public string InternalNotes { get; set; } = string.Empty;
         public string CancellationReason { get; set; } = string.Empty;
+        public OrderStatus? StatusBeforeRequest { get; set; }
+        public bool HasPendingReschedule { get; set; }
+        public bool HasPendingCancel { get; set; }
+        public string PaymentStatusSummary { get; set; } = string.Empty;
         public string? RefundPolicyNote { get; set; }
         public DateTime CreatedAt { get; set; }
         public List<PaymentDto> Payments { get; set; } = new();
@@ -111,13 +136,32 @@ namespace Bloomy.DTOs.Orders
     {
         public Guid Id { get; set; }
         public string OrderCode { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
         public string EventName { get; set; } = string.Empty;
+        public string? ConceptName { get; set; }
         public DateTime EventDate { get; set; }
+        public string SetupTime { get; set; } = string.Empty;
         public string District { get; set; } = string.Empty;
         public OrderStatus Status { get; set; }
         public string StatusLabel { get; set; } = string.Empty;
         public decimal TotalAmount { get; set; }
         public decimal DepositAmount { get; set; }
+        public bool HasDepositPaid { get; set; }
+        public bool HasPendingReschedule { get; set; }
+        public bool HasPendingCancel { get; set; }
+    }
+
+    public class CalendarEventDto
+    {
+        public Guid OrderId { get; set; }
+        public string OrderCode { get; set; } = string.Empty;
+        public string EventName { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+        public DateTime EventDate { get; set; }
+        public string SetupTime { get; set; } = string.Empty;
+        public string District { get; set; } = string.Empty;
+        public OrderStatus Status { get; set; }
+        public string StatusLabel { get; set; } = string.Empty;
     }
 
     public class ShopOwnerDashboardDto
@@ -128,6 +172,7 @@ namespace Bloomy.DTOs.Orders
         public int PendingConfirmations { get; set; }
         public int PendingPaymentConfirmations { get; set; }
         public List<OrderListItemDto> PendingBookings { get; set; } = new();
+        public List<OrderListItemDto> ManagedBookings { get; set; } = new();
         public List<OrderListItemDto> UpcomingSetups { get; set; } = new();
         public List<PendingPaymentOrderDto> PendingPayments { get; set; } = new();
     }

@@ -310,9 +310,26 @@ namespace BloomyBE.Migrations
                     b.Property<int?>("EventTypeId")
                         .HasColumnType("int");
 
+                    b.Property<string>("InternalNotes")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Notes")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PreviousAddress")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("PreviousDistrict")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("PreviousEventDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<TimeSpan?>("PreviousSetupTime")
+                        .HasColumnType("time");
 
                     b.Property<string>("OrderCode")
                         .IsRequired()
@@ -326,6 +343,9 @@ namespace BloomyBE.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("StatusBeforeRequest")
                         .HasColumnType("int");
 
                     b.Property<decimal>("TotalAmount")

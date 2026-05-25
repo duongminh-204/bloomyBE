@@ -45,6 +45,29 @@ namespace BloomyBE.Controllers
             return Ok(list);
         }
 
+        [HttpGet("bookings/managed")]
+        public async Task<IActionResult> ManagedBookings()
+        {
+            var list = await _orderService.GetManagedBookingsAsync();
+            return Ok(list);
+        }
+
+        [HttpGet("calendar")]
+        public async Task<IActionResult> Calendar([FromQuery] DateTime? from, [FromQuery] DateTime? to)
+        {
+            var start = (from ?? DateTime.UtcNow.Date).Date;
+            var end = (to ?? start.AddDays(42)).Date;
+            try
+            {
+                var events = await _orderService.GetCalendarEventsAsync(start, end);
+                return Ok(events);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
         [HttpGet("bookings/{id:guid}")]
         public async Task<IActionResult> GetBooking(Guid id)
         {
@@ -79,6 +102,62 @@ namespace BloomyBE.Controllers
             try
             {
                 var result = await _orderService.UpdateBookingStatusAsync(id, GetUserId(), dto);
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPatch("booking/{id:guid}/internal-notes")]
+        public async Task<IActionResult> UpdateInternalNotes(Guid id, [FromBody] UpdateInternalNotesDto dto)
+        {
+            try
+            {
+                var result = await _orderService.UpdateInternalNotesAsync(id, GetUserId(), dto);
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPut("booking/{id:guid}/schedule")]
+        public async Task<IActionResult> UpdateSchedule(Guid id, [FromBody] ShopOwnerRescheduleDto dto)
+        {
+            try
+            {
+                var result = await _orderService.ShopOwnerRescheduleAsync(id, GetUserId(), dto);
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("booking/{id:guid}/reschedule-request/resolve")]
+        public async Task<IActionResult> ResolveRescheduleRequest(Guid id, [FromBody] HandleCustomerRequestDto dto)
+        {
+            try
+            {
+                var result = await _orderService.ResolveRescheduleRequestAsync(id, GetUserId(), dto);
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("booking/{id:guid}/cancel-request/resolve")]
+        public async Task<IActionResult> ResolveCancelRequest(Guid id, [FromBody] HandleCustomerRequestDto dto)
+        {
+            try
+            {
+                var result = await _orderService.ResolveCancelRequestAsync(id, GetUserId(), dto);
                 return Ok(result);
             }
             catch (InvalidOperationException ex)

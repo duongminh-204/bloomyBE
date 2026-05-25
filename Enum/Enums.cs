@@ -17,6 +17,7 @@
         SettingUp = 5,
         Completed = 6,
         Cancelled = 7,
-        Rejected = 8
+        Rejected = 8,
+        CancelRequested = 9
     }
 }

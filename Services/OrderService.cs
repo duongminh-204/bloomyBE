@@ -27,7 +27,8 @@ namespace BloomyBE.Services
             [OrderStatus.SettingUp] = "Đang thi công",
             [OrderStatus.Completed] = "Hoàn thành",
             [OrderStatus.Cancelled] = "Đã hủy",
-            [OrderStatus.Rejected] = "Bị từ chối"
+            [OrderStatus.Rejected] = "Bị từ chối",
+            [OrderStatus.CancelRequested] = "Chờ xác nhận hủy"
         };
 
         public OrderService(IOrderRepository orderRepo, IPaymentSettingsService paymentSettings, IOptions<BookingSettings> settings)
@@ -263,6 +264,12 @@ namespace BloomyBE.Services
             if (!availability.IsAvailable)
                 throw new InvalidOperationException(availability.Message);
 
+            order.StatusBeforeRequest = order.Status;
+            order.PreviousEventDate = order.EventDate;
+            order.PreviousSetupTime = order.SetupTime;
+            order.PreviousAddress = order.Address;
+            order.PreviousDistrict = order.District;
+
             order.EventDate = newDate;
             order.SetupTime = newSetupTime;
             order.Address = dto.NewAddress.Trim();
@@ -282,20 +289,21 @@ namespace BloomyBE.Services
             var order = await _orderRepo.GetByIdForCustomerAsync(orderId, customerId)
                 ?? throw new InvalidOperationException("Không tìm thấy đơn hàng.");
 
-            if (order.Status is OrderStatus.Completed or OrderStatus.Cancelled or OrderStatus.Rejected)
+            if (order.Status is OrderStatus.Completed or OrderStatus.Cancelled or OrderStatus.Rejected
+                or OrderStatus.CancelRequested)
                 throw new InvalidOperationException("Không thể hủy đơn ở trạng thái hiện tại.");
 
-            var refundNote = GetRefundPolicyNote(order);
-            order.Status = OrderStatus.Cancelled;
+            order.StatusBeforeRequest = order.Status;
             order.CancellationReason = dto.Reason.Trim();
+            order.Status = OrderStatus.CancelRequested;
             order.UpdatedAt = DateTime.UtcNow;
 
-            await AddStatusHistoryAsync(order, OrderStatus.Cancelled, customerId,
-                $"Khách hàng hủy đơn. {refundNote}");
+            await AddStatusHistoryAsync(order, OrderStatus.CancelRequested, customerId,
+                $"Yêu cầu hủy đơn: {dto.Reason}. Chờ Chủ tiệm xác nhận.");
 
             await _orderRepo.SaveChangesAsync();
             var result = await MapOrderDtoAsync(order);
-            result.RefundPolicyNote = refundNote;
+            result.RefundPolicyNote = GetRefundPolicyNote(order);
             return result;
         }
 
@@ -333,6 +341,7 @@ namespace BloomyBE.Services
             var monthStart = new DateTime(today.Year, today.Month, 1);
 
             var pending = await _orderRepo.GetPendingForShopOwnerAsync();
+            var managed = await _orderRepo.GetManagedOrdersAsync();
             var upcoming = await _orderRepo.GetUpcomingSetupsAsync();
             var pendingPayments = await GetPendingPaymentConfirmationsAsync();
 
@@ -351,6 +360,7 @@ namespace BloomyBE.Services
                 PendingConfirmations = pending.Count,
                 PendingPaymentConfirmations = pendingPayments.Count,
                 PendingBookings = pending.Select(MapListItem).ToList(),
+                ManagedBookings = managed.Select(MapListItem).ToList(),
                 UpcomingSetups = upcoming.Select(MapListItem).ToList(),
                 PendingPayments = pendingPayments
             };
@@ -370,13 +380,38 @@ namespace BloomyBE.Services
             if (order.Status != OrderStatus.PendingConfirmation)
                 throw new InvalidOperationException("Chỉ có thể xác nhận đơn đang chờ xác nhận.");
 
+            var hasDeposit = order.Payments.Any(p => p.Status == "Success");
+            var isRescheduleApproval = hasDeposit && order.StatusBeforeRequest.HasValue;
+
             if (!dto.Approved)
             {
-                order.Status = OrderStatus.Rejected;
-                order.CancellationReason = dto.Notes ?? "Chủ tiệm từ chối do không đủ nguồn lực thi công.";
+                if (isRescheduleApproval)
+                {
+                    RevertRescheduleSnapshot(order);
+                    order.Status = order.StatusBeforeRequest!.Value;
+                    order.ShopOwnerId = shopOwnerId;
+                    order.UpdatedAt = DateTime.UtcNow;
+                    ClearRequestSnapshot(order);
+                    await AddStatusHistoryAsync(order, order.Status, shopOwnerId,
+                        dto.Notes ?? "Chủ tiệm từ chối yêu cầu đổi lịch. Giữ nguyên lịch cũ.");
+                }
+                else
+                {
+                    order.Status = OrderStatus.Rejected;
+                    order.CancellationReason = dto.Notes ?? "Chủ tiệm từ chối do không đủ nguồn lực thi công.";
+                    order.ShopOwnerId = shopOwnerId;
+                    order.UpdatedAt = DateTime.UtcNow;
+                    await AddStatusHistoryAsync(order, OrderStatus.Rejected, shopOwnerId, order.CancellationReason);
+                }
+            }
+            else if (isRescheduleApproval)
+            {
+                order.Status = order.StatusBeforeRequest!.Value;
                 order.ShopOwnerId = shopOwnerId;
                 order.UpdatedAt = DateTime.UtcNow;
-                await AddStatusHistoryAsync(order, OrderStatus.Rejected, shopOwnerId, order.CancellationReason);
+                ClearRequestSnapshot(order);
+                await AddStatusHistoryAsync(order, order.Status, shopOwnerId,
+                    dto.Notes ?? "Chủ tiệm đã xác nhận lịch mới.");
             }
             else
             {
@@ -453,6 +488,154 @@ namespace BloomyBE.Services
             var order = await _orderRepo.GetByIdAsync(orderId, includeDetails: true)
                 ?? throw new InvalidOperationException("Không tìm thấy đơn hàng.");
             return await MapOrderDtoAsync(order);
+        }
+
+        public async Task<List<OrderListItemDto>> GetManagedBookingsAsync()
+        {
+            var orders = await _orderRepo.GetManagedOrdersAsync();
+            return orders.Select(MapListItem).ToList();
+        }
+
+        public async Task<List<CalendarEventDto>> GetCalendarEventsAsync(DateTime from, DateTime to)
+        {
+            if (to < from)
+                throw new InvalidOperationException("Khoảng thời gian không hợp lệ.");
+
+            var orders = await _orderRepo.GetCalendarOrdersAsync(from, to);
+            return orders.Select(o => new CalendarEventDto
+            {
+                OrderId = o.Id,
+                OrderCode = o.OrderCode,
+                EventName = o.EventName,
+                FullName = o.ContactFullName,
+                EventDate = o.EventDate,
+                SetupTime = o.SetupTime.ToString(@"hh\:mm"),
+                District = o.District,
+                Status = o.Status,
+                StatusLabel = StatusLabels.GetValueOrDefault(o.Status, o.Status.ToString())
+            }).ToList();
+        }
+
+        public async Task<OrderDto> UpdateInternalNotesAsync(Guid orderId, Guid shopOwnerId, UpdateInternalNotesDto dto)
+        {
+            var order = await _orderRepo.GetByIdAsync(orderId, includeDetails: true)
+                ?? throw new InvalidOperationException("Không tìm thấy đơn hàng.");
+
+            order.InternalNotes = dto.InternalNotes?.Trim() ?? string.Empty;
+            order.ShopOwnerId = shopOwnerId;
+            order.UpdatedAt = DateTime.UtcNow;
+            await _orderRepo.SaveChangesAsync();
+            return await MapOrderDtoAsync(order);
+        }
+
+        public async Task<OrderDto> ShopOwnerRescheduleAsync(Guid orderId, Guid shopOwnerId, ShopOwnerRescheduleDto dto)
+        {
+            var order = await _orderRepo.GetByIdAsync(orderId, includeDetails: true)
+                ?? throw new InvalidOperationException("Không tìm thấy đơn hàng.");
+
+            if (order.Status is OrderStatus.Completed or OrderStatus.Cancelled or OrderStatus.Rejected)
+                throw new InvalidOperationException("Không thể đổi lịch đơn đã kết thúc.");
+
+            if (!BookingValidator.IsValidServiceArea(dto.Address, dto.District, _settings, out var areaError))
+                throw new InvalidOperationException(areaError);
+
+            var newDate = dto.EventDate.Date;
+            if (!BookingValidator.IsFutureOrToday(newDate, out var dateError))
+                throw new InvalidOperationException(dateError);
+
+            var newSetupTime = ParseSetupTime(dto.SetupTime);
+            var availability = await CheckAvailabilityAsync(newDate, newSetupTime, order.Id);
+            if (!availability.IsAvailable)
+                throw new InvalidOperationException(availability.Message);
+
+            order.EventDate = newDate;
+            order.SetupTime = newSetupTime;
+            order.Address = dto.Address.Trim();
+            order.District = dto.District.Trim();
+            order.ShopOwnerId = shopOwnerId;
+            order.UpdatedAt = DateTime.UtcNow;
+
+            await AddStatusHistoryAsync(order, order.Status, shopOwnerId,
+                dto.Notes ?? $"Chủ tiệm cập nhật lịch thi công: {newDate:dd/MM/yyyy} {newSetupTime:hh\\:mm}.");
+
+            await _orderRepo.SaveChangesAsync();
+            return await MapOrderDtoAsync(order);
+        }
+
+        public async Task<OrderDto> ResolveRescheduleRequestAsync(Guid orderId, Guid shopOwnerId, HandleCustomerRequestDto dto)
+        {
+            var order = await _orderRepo.GetByIdAsync(orderId, includeDetails: true)
+                ?? throw new InvalidOperationException("Không tìm thấy đơn hàng.");
+
+            if (order.Status != OrderStatus.PendingConfirmation || !order.StatusBeforeRequest.HasValue)
+                throw new InvalidOperationException("Đơn không có yêu cầu đổi lịch đang chờ xử lý.");
+
+            if (!order.Payments.Any(p => p.Status == "Success"))
+                throw new InvalidOperationException("Yêu cầu đổi lịch này dùng chức năng xác nhận đơn thông thường.");
+
+            return await ConfirmBookingAsync(orderId, shopOwnerId, new ConfirmBookingDto
+            {
+                Approved = dto.Approved,
+                Notes = dto.Notes
+            });
+        }
+
+        public async Task<OrderDto> ResolveCancelRequestAsync(Guid orderId, Guid shopOwnerId, HandleCustomerRequestDto dto)
+        {
+            var order = await _orderRepo.GetByIdAsync(orderId, includeDetails: true)
+                ?? throw new InvalidOperationException("Không tìm thấy đơn hàng.");
+
+            if (order.Status != OrderStatus.CancelRequested)
+                throw new InvalidOperationException("Đơn không có yêu cầu hủy đang chờ xử lý.");
+
+            if (!dto.Approved)
+            {
+                var restore = order.StatusBeforeRequest ?? OrderStatus.Confirmed;
+                order.Status = restore;
+                order.CancellationReason = string.Empty;
+                order.ShopOwnerId = shopOwnerId;
+                order.UpdatedAt = DateTime.UtcNow;
+                ClearRequestSnapshot(order);
+                await AddStatusHistoryAsync(order, restore, shopOwnerId,
+                    dto.Notes ?? "Chủ tiệm từ chối yêu cầu hủy đơn. Đơn tiếp tục được xử lý.");
+            }
+            else
+            {
+                var refundNote = GetRefundPolicyNote(order);
+                order.Status = OrderStatus.Cancelled;
+                order.ShopOwnerId = shopOwnerId;
+                order.UpdatedAt = DateTime.UtcNow;
+                ClearRequestSnapshot(order);
+                await AddStatusHistoryAsync(order, OrderStatus.Cancelled, shopOwnerId,
+                    $"Chủ tiệm xác nhận hủy đơn. {refundNote}. {dto.Notes}".Trim());
+            }
+
+            await _orderRepo.SaveChangesAsync();
+            var result = await MapOrderDtoAsync(order);
+            if (dto.Approved)
+                result.RefundPolicyNote = GetRefundPolicyNote(order);
+            return result;
+        }
+
+        private static void RevertRescheduleSnapshot(Order order)
+        {
+            if (order.PreviousEventDate.HasValue)
+                order.EventDate = order.PreviousEventDate.Value;
+            if (order.PreviousSetupTime.HasValue)
+                order.SetupTime = order.PreviousSetupTime.Value;
+            if (!string.IsNullOrWhiteSpace(order.PreviousAddress))
+                order.Address = order.PreviousAddress;
+            if (!string.IsNullOrWhiteSpace(order.PreviousDistrict))
+                order.District = order.PreviousDistrict!;
+        }
+
+        private static void ClearRequestSnapshot(Order order)
+        {
+            order.StatusBeforeRequest = null;
+            order.PreviousEventDate = null;
+            order.PreviousSetupTime = null;
+            order.PreviousAddress = null;
+            order.PreviousDistrict = null;
         }
 
         private async Task<int?> ResolveEventTypeIdAsync(int? requestedId)
@@ -555,7 +738,8 @@ namespace BloomyBE.Services
 
         private static string GetRefundPolicyNote(Order order)
         {
-            var hasDeposit = order.Status >= OrderStatus.Confirmed;
+            var hasDeposit = order.Payments?.Any(p => p.Status == "Success") == true
+                || order.Status >= OrderStatus.Confirmed && order.Status != OrderStatus.CancelRequested;
             var daysUntilEvent = (order.EventDate.Date - DateTime.UtcNow.Date).Days;
 
             if (!hasDeposit)
@@ -594,7 +778,14 @@ namespace BloomyBE.Services
                 Status = order.Status,
                 StatusLabel = StatusLabels.GetValueOrDefault(order.Status, order.Status.ToString()),
                 Notes = order.Notes,
+                InternalNotes = order.InternalNotes,
                 CancellationReason = order.CancellationReason,
+                StatusBeforeRequest = order.StatusBeforeRequest,
+                HasPendingReschedule = order.Status == OrderStatus.PendingConfirmation
+                    && order.StatusBeforeRequest.HasValue
+                    && order.Payments.Any(p => p.Status == "Success"),
+                HasPendingCancel = order.Status == OrderStatus.CancelRequested,
+                PaymentStatusSummary = GetPaymentStatusSummary(order),
                 CreatedAt = order.CreatedAt,
                 Payments = order.Payments?.Select(MapPayment).ToList() ?? new(),
                 StatusHistory = order.StatusHistory?
@@ -612,14 +803,33 @@ namespace BloomyBE.Services
         {
             Id = order.Id,
             OrderCode = order.OrderCode,
+            FullName = order.ContactFullName,
             EventName = order.EventName,
+            ConceptName = order.Concept?.Name,
             EventDate = order.EventDate,
+            SetupTime = order.SetupTime.ToString(@"hh\:mm"),
             District = order.District,
             Status = order.Status,
             StatusLabel = StatusLabels.GetValueOrDefault(order.Status, order.Status.ToString()),
             TotalAmount = order.TotalAmount,
-            DepositAmount = order.DepositAmount
+            DepositAmount = order.DepositAmount,
+            HasDepositPaid = order.Payments?.Any(p => p.Status == "Success") == true,
+            HasPendingReschedule = order.Status == OrderStatus.PendingConfirmation
+                && order.StatusBeforeRequest.HasValue
+                && order.Payments?.Any(p => p.Status == "Success") == true,
+            HasPendingCancel = order.Status == OrderStatus.CancelRequested
         };
+
+        private static string GetPaymentStatusSummary(Order order)
+        {
+            if (order.Payments?.Any(p => p.Status == "Success") == true)
+                return "Đã thanh toán cọc";
+            if (order.Payments?.Any(p => p.Status == "Pending") == true)
+                return "Chờ xác nhận thanh toán";
+            if (order.Status == OrderStatus.WaitingDeposit)
+                return "Chờ khách thanh toán cọc";
+            return "Chưa thanh toán cọc";
+        }
 
         private static PaymentDto MapPayment(Payment p) => new()
         {

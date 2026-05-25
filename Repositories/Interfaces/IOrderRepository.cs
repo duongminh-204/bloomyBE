@@ -9,7 +9,9 @@ namespace Bloomy.Data.Interfaces
         Task<Order?> GetByIdForCustomerAsync(Guid id, Guid customerId);
         Task<List<Order>> GetByCustomerIdAsync(Guid customerId);
         Task<List<Order>> GetPendingForShopOwnerAsync();
+        Task<List<Order>> GetManagedOrdersAsync();
         Task<List<Order>> GetUpcomingSetupsAsync(int days = 14);
+        Task<List<Order>> GetCalendarOrdersAsync(DateTime from, DateTime to);
         Task<int> CountActiveOrdersOnDateAsync(DateTime date, Guid? excludeOrderId = null);
         Task<List<Order>> GetOrdersOnDateAsync(DateTime date, Guid? excludeOrderId = null);
         Task<User?> GetDefaultShopOwnerAsync();

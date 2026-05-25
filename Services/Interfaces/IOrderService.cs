@@ -22,5 +22,11 @@ namespace BloomyBE.Services.Interfaces
         Task<OrderDto> GetBookingForShopOwnerAsync(Guid orderId);
         Task<PaymentDto> ConfirmPaymentAsync(Guid orderId, Guid paymentId, Guid shopOwnerId);
         Task<List<PendingPaymentOrderDto>> GetPendingPaymentConfirmationsAsync();
+        Task<List<OrderListItemDto>> GetManagedBookingsAsync();
+        Task<List<CalendarEventDto>> GetCalendarEventsAsync(DateTime from, DateTime to);
+        Task<OrderDto> UpdateInternalNotesAsync(Guid orderId, Guid shopOwnerId, UpdateInternalNotesDto dto);
+        Task<OrderDto> ShopOwnerRescheduleAsync(Guid orderId, Guid shopOwnerId, ShopOwnerRescheduleDto dto);
+        Task<OrderDto> ResolveRescheduleRequestAsync(Guid orderId, Guid shopOwnerId, HandleCustomerRequestDto dto);
+        Task<OrderDto> ResolveCancelRequestAsync(Guid orderId, Guid shopOwnerId, HandleCustomerRequestDto dto);
     }
 }

@@ -62,8 +62,39 @@ namespace Bloomy.Data.Repositories
         {
             return await _context.Orders
                 .Include(o => o.Customer)
-                .Where(o => o.Status == OrderStatus.PendingConfirmation)
+                .Include(o => o.Payments)
+                .Where(o => o.Status == OrderStatus.PendingConfirmation
+                    && !o.Payments.Any(p => p.Status == "Success"))
                 .OrderBy(o => o.EventDate)
+                .ToListAsync();
+        }
+
+        public async Task<List<Order>> GetManagedOrdersAsync()
+        {
+            return await _context.Orders
+                .Include(o => o.Customer)
+                .Include(o => o.Concept)
+                .Include(o => o.Payments)
+                .Where(o =>
+                    o.Status == OrderStatus.CancelRequested
+                    || (o.Status == OrderStatus.PendingConfirmation
+                        && o.Payments.Any(p => p.Status == "Success"))
+                    || (o.Status >= OrderStatus.Confirmed && o.Status <= OrderStatus.SettingUp))
+                .OrderBy(o => o.EventDate)
+                .ThenBy(o => o.SetupTime)
+                .ToListAsync();
+        }
+
+        public async Task<List<Order>> GetCalendarOrdersAsync(DateTime from, DateTime to)
+        {
+            var fromDate = from.Date;
+            var toDate = to.Date;
+            return await _context.Orders
+                .Include(o => o.Customer)
+                .Where(o => o.EventDate.Date >= fromDate && o.EventDate.Date <= toDate
+                    && (ActiveStatuses.Contains(o.Status) || o.Status == OrderStatus.Completed))
+                .OrderBy(o => o.EventDate)
+                .ThenBy(o => o.SetupTime)
                 .ToListAsync();
         }
 

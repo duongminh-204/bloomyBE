@@ -52,7 +52,17 @@ namespace Bloomy.Models
         public OrderStatus Status { get; set; } = OrderStatus.PendingConfirmation;
 
         public string Notes { get; set; } = string.Empty;
+        public string InternalNotes { get; set; } = string.Empty;
         public string CancellationReason { get; set; } = string.Empty;
+
+        public OrderStatus? StatusBeforeRequest { get; set; }
+        public DateTime? PreviousEventDate { get; set; }
+        public TimeSpan? PreviousSetupTime { get; set; }
+
+        [MaxLength(500)]
+        public string? PreviousAddress { get; set; }
+
+        public string? PreviousDistrict { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
