@@ -64,10 +64,10 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.Name = "BloomyAuth";
         options.Cookie.HttpOnly = true;
         options.Cookie.Path = "/";
-        // Dev: HTTP + nhiều port (Vite proxy hoặc gọi thẳng 5200)
+        // Dev: Vite proxy (cùng origin localhost:5174) — Lax; None+không Secure bị trình duyệt chặn
         if (builder.Environment.IsDevelopment())
         {
-            options.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.None;
+            options.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Lax;
             options.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.None;
         }
         else
