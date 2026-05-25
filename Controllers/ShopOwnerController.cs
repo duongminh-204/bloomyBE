@@ -1,3 +1,5 @@
+using Bloomy.DTOs.Orders;
+using BloomyBE.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -9,23 +11,77 @@ namespace BloomyBE.Controllers
     [Authorize(Roles = "ShopOwner")]
     public class ShopOwnerController : ControllerBase
     {
-        [HttpGet("dashboard")]
-        public IActionResult Dashboard()
+        private readonly IOrderService _orderService;
+
+        public ShopOwnerController(IOrderService orderService)
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            return Ok(new { message = "ShopOwner dashboard", userId });
+            _orderService = orderService;
+        }
+
+        private Guid GetUserId() =>
+            Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        [HttpGet("dashboard")]
+        public async Task<IActionResult> Dashboard()
+        {
+            var data = await _orderService.GetShopOwnerDashboardAsync();
+            return Ok(data);
         }
 
         [HttpGet("requests")]
-        public IActionResult ViewRequests()
+        public async Task<IActionResult> ViewRequests()
         {
-            return Ok(new { message = "List of booking requests" });
+            var list = await _orderService.GetPendingBookingsAsync();
+            return Ok(list);
         }
 
-        [HttpPut("booking/{id}/status")]
-        public IActionResult UpdateBookingStatus(string id)
+        [HttpGet("bookings/upcoming")]
+        public async Task<IActionResult> UpcomingSetups()
         {
-            return Ok(new { message = "Booking status updated", id });
+            var list = await _orderService.GetUpcomingSetupsAsync();
+            return Ok(list);
+        }
+
+        [HttpGet("bookings/{id:guid}")]
+        public async Task<IActionResult> GetBooking(Guid id)
+        {
+            try
+            {
+                var result = await _orderService.GetBookingForShopOwnerAsync(id);
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("booking/{id:guid}/confirm")]
+        public async Task<IActionResult> ConfirmBooking(Guid id, [FromBody] ConfirmBookingDto dto)
+        {
+            try
+            {
+                var result = await _orderService.ConfirmBookingAsync(id, GetUserId(), dto);
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPut("booking/{id:guid}/status")]
+        public async Task<IActionResult> UpdateBookingStatus(Guid id, [FromBody] UpdateBookingStatusDto dto)
+        {
+            try
+            {
+                var result = await _orderService.UpdateBookingStatusAsync(id, GetUserId(), dto);
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         [HttpPost("services")]

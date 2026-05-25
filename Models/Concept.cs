@@ -1,5 +1,5 @@
-﻿
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Bloomy.Models
 {
@@ -21,6 +21,11 @@ namespace Bloomy.Models
         public Order? Order { get; set; }
 
         public bool IsTemplate { get; set; } = false;
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal QuotedAmount { get; set; }
+
+        public bool IsQuoteApproved { get; set; } = false;
 
         public string AiGeneratedData { get; set; } = string.Empty; // JSON
 

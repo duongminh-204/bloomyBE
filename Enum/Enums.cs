@@ -9,13 +9,14 @@
 
     public enum OrderStatus
     {
-        Pending = 0,      
-        Confirmed = 1,    
-        Preparing = 2,   
-        Transporting = 3, 
-        Setup = 4,        
-        Completed = 5,    
-        Cancelled = 6,    
-        Rejected = 7      
+        PendingConfirmation = 0,
+        WaitingDeposit = 1,
+        Confirmed = 2,
+        Preparing = 3,
+        Transporting = 4,
+        SettingUp = 5,
+        Completed = 6,
+        Cancelled = 7,
+        Rejected = 8
     }
 }

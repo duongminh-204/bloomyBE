@@ -16,6 +16,9 @@ namespace Bloomy.Models
         public string TransactionId { get; set; } = string.Empty;
         public string Status { get; set; } = "Pending"; // Pending, Success, Failed
 
+        public string QrCodeUrl { get; set; } = string.Empty;
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? PaidAt { get; set; }
     }
 }

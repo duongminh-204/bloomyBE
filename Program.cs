@@ -3,6 +3,8 @@ using Bloomy.Data.Interfaces;
 using Bloomy.Data.Repositories;
 using Bloomy.Models;
 using Bloomy.Services;
+using BloomyBE.Configuration;
+using BloomyBE.Services;
 using BloomyBE.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
@@ -77,9 +79,14 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 
 builder.Services.AddAuthorization();
 
+// Booking settings
+builder.Services.Configure<BookingSettings>(builder.Configuration.GetSection("BookingSettings"));
+
 // ====================== REPOSITORIES & SERVICES ======================
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<IOrderService, OrderService>();
 
 // ==================== BUILD & MIDDLEWARE ====================
 var app = builder.Build();

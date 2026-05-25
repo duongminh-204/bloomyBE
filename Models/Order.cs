@@ -8,6 +8,18 @@ namespace Bloomy.Models
     {
         public Guid Id { get; set; } = Guid.NewGuid();
 
+        [MaxLength(30)]
+        public string OrderCode { get; set; } = string.Empty;
+
+        [MaxLength(100)]
+        public string ContactFullName { get; set; } = string.Empty;
+
+        [MaxLength(20)]
+        public string ContactPhone { get; set; } = string.Empty;
+
+        [MaxLength(150)]
+        public string ContactEmail { get; set; } = string.Empty;
+
         public Guid CustomerId { get; set; }    
         public User Customer { get; set; } = null!;
 
@@ -37,7 +49,7 @@ namespace Bloomy.Models
         [Column(TypeName = "decimal(18,2)")]
         public decimal DepositAmount { get; set; }
 
-        public OrderStatus Status { get; set; } = OrderStatus.Pending;
+        public OrderStatus Status { get; set; } = OrderStatus.PendingConfirmation;
 
         public string Notes { get; set; } = string.Empty;
         public string CancellationReason { get; set; } = string.Empty;

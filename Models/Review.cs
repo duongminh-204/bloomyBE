@@ -17,6 +17,9 @@ namespace Bloomy.Models
 
         public string Comment { get; set; } = string.Empty;
 
+        /// <summary>JSON array of image URLs uploaded by customer</summary>
+        public string ImageUrls { get; set; } = "[]";
+
         public bool IsApproved { get; set; } = false; // Chủ tiệm duyệt để hiển thị
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
