@@ -41,6 +41,14 @@ namespace Bloomy.Data
             modelBuilder.Entity<BrandSetting>()
                 .HasData(new BrandSetting { Id = 1 });
 
+            modelBuilder.Entity<EventType>().HasData(
+                new EventType { Id = 1, Name = "Sinh nhật", Description = "Trang trí tiệc sinh nhật", IconUrl = "" },
+                new EventType { Id = 2, Name = "Tiệc cưới", Description = "Trang trí tiệc cưới, lễ cưới", IconUrl = "" },
+                new EventType { Id = 3, Name = "Khai trương", Description = "Trang trí khai trương, kỷ niệm", IconUrl = "" },
+                new EventType { Id = 4, Name = "Hội nghị", Description = "Trang trí hội nghị, sự kiện doanh nghiệp", IconUrl = "" },
+                new EventType { Id = 5, Name = "Baby shower", Description = "Trang trí tiệc baby shower", IconUrl = "" }
+            );
+
         
 
         

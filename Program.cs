@@ -4,6 +4,7 @@ using Bloomy.Data.Repositories;
 using Bloomy.Models;
 using Bloomy.Services;
 using BloomyBE.Configuration;
+using BloomyBE.Data;
 using BloomyBE.Services;
 using BloomyBE.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -114,5 +115,11 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<BloomyDbContext>();
+    await DatabaseSeeder.SeedAsync(db);
+}
 
 app.Run();

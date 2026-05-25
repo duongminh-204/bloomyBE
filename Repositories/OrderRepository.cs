@@ -115,6 +115,16 @@ namespace Bloomy.Data.Repositories
             return await _context.Concepts.FirstOrDefaultAsync(c => c.Id == conceptId);
         }
 
+        public async Task<EventType?> GetEventTypeByIdAsync(int eventTypeId)
+        {
+            return await _context.EventTypes.FirstOrDefaultAsync(e => e.Id == eventTypeId);
+        }
+
+        public async Task<EventType?> GetDefaultEventTypeAsync()
+        {
+            return await _context.EventTypes.OrderBy(e => e.Id).FirstOrDefaultAsync();
+        }
+
         public async Task<Concept> CreateConceptAsync(Concept concept)
         {
             await _context.Concepts.AddAsync(concept);

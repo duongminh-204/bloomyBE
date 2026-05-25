@@ -14,6 +14,8 @@ namespace Bloomy.Data.Interfaces
         Task<List<Order>> GetOrdersOnDateAsync(DateTime date, Guid? excludeOrderId = null);
         Task<User?> GetDefaultShopOwnerAsync();
         Task<Concept?> GetConceptAsync(Guid conceptId);
+        Task<EventType?> GetEventTypeByIdAsync(int eventTypeId);
+        Task<EventType?> GetDefaultEventTypeAsync();
         Task<Concept> CreateConceptAsync(Concept concept);
         Task<List<Concept>> GetConceptsByCustomerAsync(Guid customerId);
         Task AddOrderAsync(Order order);

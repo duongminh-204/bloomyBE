@@ -73,6 +73,8 @@ namespace BloomyBE.Services
                 throw new InvalidOperationException(msg);
             }
 
+            var eventTypeId = await ResolveEventTypeIdAsync(dto.EventTypeId);
+
             var shopOwner = await _orderRepo.GetDefaultShopOwnerAsync();
             var totalAmount = dto.TotalAmount > 0 ? dto.TotalAmount : concept.QuotedAmount;
             if (totalAmount <= 0)
@@ -88,7 +90,7 @@ namespace BloomyBE.Services
                 ContactEmail = dto.Email.Trim(),
                 CustomerId = customerId,
                 ShopOwnerId = shopOwner?.Id,
-                EventTypeId = dto.EventTypeId,
+                EventTypeId = eventTypeId,
                 ConceptId = dto.ConceptId,
                 EventName = string.IsNullOrWhiteSpace(dto.EventName) ? concept.Name : dto.EventName.Trim(),
                 EventDate = eventDate,
@@ -388,6 +390,22 @@ namespace BloomyBE.Services
             var order = await _orderRepo.GetByIdAsync(orderId, includeDetails: true)
                 ?? throw new InvalidOperationException("Không tìm thấy đơn hàng.");
             return await MapOrderDtoAsync(order);
+        }
+
+        private async Task<int?> ResolveEventTypeIdAsync(int? requestedId)
+        {
+            if (requestedId.HasValue)
+            {
+                var existing = await _orderRepo.GetEventTypeByIdAsync(requestedId.Value);
+                if (existing != null)
+                    return existing.Id;
+            }
+
+            var fallback = await _orderRepo.GetDefaultEventTypeAsync();
+            if (fallback != null)
+                return fallback.Id;
+
+            throw new InvalidOperationException("Hệ thống chưa có loại sự kiện. Vui lòng khởi động lại server hoặc liên hệ quản trị.");
         }
 
         private async Task AddStatusHistoryAsync(Order order, OrderStatus status, Guid updatedById, string notes)
