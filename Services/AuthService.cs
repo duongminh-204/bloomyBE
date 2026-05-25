@@ -1,33 +1,27 @@
 ﻿using Bloomy.Data.Interfaces;
+using Bloomy.DTOs.Auth;
 using Bloomy.Models;
 using Bloomy.Models.Enums;
 using BloomyBE.Services.Interfaces;
-using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 
 namespace Bloomy.Services
 {
     public class AuthService : IAuthService
     {
         private readonly IAuthRepository _authRepo;
-        private readonly IConfiguration _config;
 
-        public AuthService(IAuthRepository authRepo, IConfiguration config)
+        public AuthService(IAuthRepository authRepo)
         {
             _authRepo = authRepo;
-            _config = config;
         }
 
         public async Task<AuthResponseDto> RegisterAsync(RegisterDto dto)
         {
             if (await _authRepo.IsEmailExistAsync(dto.Email))
-                throw new Exception("Email đã tồn tại.");
+                throw new InvalidOperationException("Email đã tồn tại.");
 
             if (await _authRepo.IsPhoneExistAsync(dto.PhoneNumber))
-                throw new Exception("Số điện thoại đã tồn tại.");
+                throw new InvalidOperationException("Số điện thoại đã tồn tại.");
 
             var user = new User
             {
@@ -42,9 +36,7 @@ namespace Bloomy.Services
 
             await _authRepo.CreateAsync(user, dto.Password);
 
-            var token = GenerateJwtToken(user);
-
-            return CreateAuthResponse(user, token);
+            return CreateAuthResponse(user, string.Empty);
         }
 
         public async Task<AuthResponseDto> LoginAsync(LoginDto dto)
@@ -55,35 +47,10 @@ namespace Bloomy.Services
                 user = await _authRepo.GetByPhoneAsync(dto.EmailOrPhone);
 
             if (user == null || !await _authRepo.CheckPasswordAsync(user, dto.Password))
-                throw new Exception("Email/Số điện thoại hoặc mật khẩu không chính xác.");
+                throw new UnauthorizedAccessException("Email/Số điện thoại hoặc mật khẩu không chính xác.");
 
-            var token = GenerateJwtToken(user);
-            return CreateAuthResponse(user, token);
+            return CreateAuthResponse(user, string.Empty);
         }
-
-        private string GenerateJwtToken(User user)
-        {
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Email, user.Email ?? ""),
-                new Claim(ClaimTypes.Role, user.Role.ToString()),
-                new Claim("FullName", user.FullName ?? "")
-            };
-
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-            var token = new JwtSecurityToken(
-                issuer: _config["Jwt:Issuer"],
-                audience: _config["Jwt:Audience"],
-                claims: claims,
-                expires: DateTime.UtcNow.AddDays(7),
-                signingCredentials: creds);
-
-            return new JwtSecurityTokenHandler().WriteToken(token);
-        }
-
         private AuthResponseDto CreateAuthResponse(User user, string token)
         {
             return new AuthResponseDto
@@ -95,11 +62,6 @@ namespace Bloomy.Services
                 Role = user.Role,
                 Token = token
             };
-        }
-
-        public Task<AuthResponseDto> ExternalLoginAsync(string provider, string providerKey, string email, string fullName)
-        {
-            throw new NotImplementedException();
         }
     }
 }

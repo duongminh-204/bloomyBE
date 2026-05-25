@@ -48,8 +48,16 @@ namespace Bloomy.Data.Repositories
 
         public Task<bool> CheckPasswordAsync(User user, string password)
         {
-            var isValid = BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
-            return Task.FromResult(isValid);
+            try
+            {
+                var isValid = BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
+                return Task.FromResult(isValid);
+            }
+            catch (BCrypt.Net.SaltParseException)
+            {
+                // Legacy records or manually inserted rows may not use BCrypt hashes.
+                return Task.FromResult(false);
+            }
         }
     }
 }
