@@ -168,6 +168,9 @@ namespace BloomyBE.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("IsQuoteApproved")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsTemplate")
                         .HasColumnType("bit");
 
@@ -178,6 +181,9 @@ namespace BloomyBE.Migrations
 
                     b.Property<Guid?>("OrderId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("QuotedAmount")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Style")
                         .IsRequired()
@@ -265,6 +271,21 @@ namespace BloomyBE.Migrations
                     b.Property<Guid?>("ConceptId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ContactEmail")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("ContactFullName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ContactPhone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -292,6 +313,11 @@ namespace BloomyBE.Migrations
                     b.Property<string>("Notes")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OrderCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<TimeSpan>("SetupTime")
                         .HasColumnType("time");
@@ -369,7 +395,14 @@ namespace BloomyBE.Migrations
                     b.Property<Guid>("OrderId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("QrCodeUrl")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
@@ -460,6 +493,10 @@ namespace BloomyBE.Migrations
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ImageUrls")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<bool>("IsApproved")
                         .HasColumnType("bit");
 
@@ -533,9 +570,6 @@ namespace BloomyBE.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("GoogleId")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
