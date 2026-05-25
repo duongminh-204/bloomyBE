@@ -1,6 +1,5 @@
 ﻿using Bloomy.Data.Interfaces;
 using Bloomy.Models;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Bloomy.Data.Repositories
@@ -8,12 +7,10 @@ namespace Bloomy.Data.Repositories
     public class AuthRepository : IAuthRepository
     {
         private readonly BloomyDbContext _context;
-        private readonly UserManager<User> _userManager;
 
-        public AuthRepository(BloomyDbContext context, UserManager<User> userManager)
+        public AuthRepository(BloomyDbContext context)
         {
             _context = context;
-            _userManager = userManager;
         }
 
         public async Task<User?> GetByEmailAsync(string email)
@@ -43,14 +40,24 @@ namespace Bloomy.Data.Repositories
 
         public async Task CreateAsync(User user, string password)
         {
-            var result = await _userManager.CreateAsync(user, password);
-            if (!result.Succeeded)
-                throw new Exception(string.Join(", ", result.Errors.Select(e => e.Description)));
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
+
+            await _context.Users.AddAsync(user);
+            await _context.SaveChangesAsync();
         }
 
-        public async Task<bool> CheckPasswordAsync(User user, string password)
+        public Task<bool> CheckPasswordAsync(User user, string password)
         {
-            return await _userManager.CheckPasswordAsync(user, password);
+            try
+            {
+                var isValid = BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
+                return Task.FromResult(isValid);
+            }
+            catch (BCrypt.Net.SaltParseException)
+            {
+                // Legacy records or manually inserted rows may not use BCrypt hashes.
+                return Task.FromResult(false);
+            }
         }
     }
 }

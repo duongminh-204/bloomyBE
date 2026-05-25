@@ -17,7 +17,6 @@ namespace Bloomy.Models
         public string Email { get; set; } = string.Empty;
 
         public string? PasswordHash { get; set; }
-        public string? GoogleId { get; set; }
 
         public UserRole Role { get; set; } = UserRole.Customer;
 
