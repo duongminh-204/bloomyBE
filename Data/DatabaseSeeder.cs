@@ -1,11 +1,14 @@
 using Bloomy.Data;
 using Bloomy.Models;
+using Bloomy.Models.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace BloomyBE.Data
 {
     public static class DatabaseSeeder
     {
+        public const string DefaultShopOwnerEmail = "owner@bloomy.vn";
+        public const string DefaultShopOwnerPassword = "Owner@123";
         public static readonly EventType[] DefaultEventTypes =
         [
             new() { Name = "Sinh nhật", Description = "Trang trí tiệc sinh nhật", IconUrl = "" },
@@ -18,11 +21,32 @@ namespace BloomyBE.Data
         public static async Task SeedAsync(BloomyDbContext context)
         {
             await EnsurePaymentSettingsTableAsync(context);
+            await EnsureShopOwnerUserAsync(context);
 
             if (await context.EventTypes.AnyAsync())
                 return;
 
             await context.EventTypes.AddRangeAsync(DefaultEventTypes);
+            await context.SaveChangesAsync();
+        }
+
+        private static async Task EnsureShopOwnerUserAsync(BloomyDbContext context)
+        {
+            if (await context.Users.AnyAsync(u => u.Role == UserRole.ShopOwner))
+                return;
+
+            var user = new User
+            {
+                FullName = "Chủ tiệm Bloomy",
+                Email = DefaultShopOwnerEmail,
+                PhoneNumber = "0900000001",
+                Role = UserRole.ShopOwner,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(DefaultShopOwnerPassword)
+            };
+
+            await context.Users.AddAsync(user);
             await context.SaveChangesAsync();
         }
 

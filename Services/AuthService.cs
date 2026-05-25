@@ -25,11 +25,11 @@ namespace Bloomy.Services
 
             var user = new User
             {
-              
                 Email = dto.Email,
                 PhoneNumber = dto.PhoneNumber,
                 FullName = dto.FullName,
-                Role = dto.Role,
+                // Đăng ký công khai luôn là Khách hàng; ShopOwner do admin/seed tạo
+                Role = UserRole.Customer,
                 CreatedAt = DateTime.UtcNow,
                 IsActive = true
             };
@@ -51,6 +51,13 @@ namespace Bloomy.Services
 
             return CreateAuthResponse(user, string.Empty);
         }
+
+        public async Task<AuthResponseDto?> GetUserProfileAsync(Guid userId)
+        {
+            var user = await _authRepo.GetByIdAsync(userId);
+            return user == null ? null : CreateAuthResponse(user, string.Empty);
+        }
+
         private AuthResponseDto CreateAuthResponse(User user, string token)
         {
             return new AuthResponseDto
