@@ -47,12 +47,17 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.LoginPath = "/api/auth/login";
         options.Cookie.Name = "BloomyAuth";
         options.Cookie.HttpOnly = true;
-        // Allow cross-site if frontend served from different origin; adjust for production
-        // Dev + Vite proxy: cùng origin localhost:5174 → Lax. Production cross-site → None.
-        options.Cookie.SameSite = builder.Environment.IsDevelopment()
-            ? Microsoft.AspNetCore.Http.SameSiteMode.Lax
-            : Microsoft.AspNetCore.Http.SameSiteMode.None;
-        options.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.SameAsRequest;
+        // On development, allow the cookie in cross-origin fetches from the Vite dev server.
+        if (builder.Environment.IsDevelopment())
+        {
+            options.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.None;
+            options.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.None;
+        }
+        else
+        {
+            options.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.None;
+            options.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.SameAsRequest;
+        }
         options.ExpireTimeSpan = TimeSpan.FromDays(7);
         // For API calls, return 401/403 instead of redirecting to login page
         options.Events = new Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationEvents
