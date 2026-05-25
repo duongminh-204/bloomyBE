@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BloomyBE.Migrations
 {
     [DbContext(typeof(BloomyDbContext))]
-    [Migration("20260525114322_InitDb")]
+    [Migration("20260525190800_InitDb")]
     partial class InitDb
     {
         /// <inheritdoc />
@@ -68,21 +68,7 @@ namespace BloomyBE.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("BrandSettings");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            AboutUs = "",
-                            Address = "",
-                            BannerUrl = "",
-                            Description = "",
-                            Email = "",
-                            LogoUrl = "",
-                            Phone = "",
-                            ShopName = ""
-                        });
+                    b.ToTable("BrandSettings", (string)null);
                 });
 
             modelBuilder.Entity("Bloomy.Models.ChatConversation", b =>
@@ -313,6 +299,10 @@ namespace BloomyBE.Migrations
                     b.Property<int?>("EventTypeId")
                         .HasColumnType("int");
 
+                    b.Property<string>("InternalNotes")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Notes")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -322,6 +312,19 @@ namespace BloomyBE.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
+                    b.Property<string>("PreviousAddress")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("PreviousDistrict")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("PreviousEventDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<TimeSpan?>("PreviousSetupTime")
+                        .HasColumnType("time");
+
                     b.Property<TimeSpan>("SetupTime")
                         .HasColumnType("time");
 
@@ -329,6 +332,9 @@ namespace BloomyBE.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("StatusBeforeRequest")
                         .HasColumnType("int");
 
                     b.Property<decimal>("TotalAmount")
@@ -422,6 +428,60 @@ namespace BloomyBE.Migrations
                     b.HasIndex("OrderId");
 
                     b.ToTable("Payments");
+                });
+
+            modelBuilder.Entity("Bloomy.Models.PaymentSetting", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AccountHolderName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("AccountNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("BankName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<bool>("EnableBankTransfer")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("EnableMomo")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("EnableQrCode")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("EnableVNPay")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("MomoPhone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("QrImageUrl")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TransferContentTemplate")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PaymentSettings", (string)null);
                 });
 
             modelBuilder.Entity("Bloomy.Models.PortfolioImage", b =>
@@ -607,8 +667,7 @@ namespace BloomyBE.Migrations
                     b.HasOne("Bloomy.Models.User", "Customer")
                         .WithMany("ConversationsAsCustomer")
                         .HasForeignKey("CustomerId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Bloomy.Models.Order", "Order")
                         .WithMany()
@@ -618,8 +677,7 @@ namespace BloomyBE.Migrations
                     b.HasOne("Bloomy.Models.User", "ShopOwner")
                         .WithMany("ConversationsAsShopOwner")
                         .HasForeignKey("ShopOwnerId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Customer");
 
@@ -639,8 +697,7 @@ namespace BloomyBE.Migrations
                     b.HasOne("Bloomy.Models.User", "Sender")
                         .WithMany()
                         .HasForeignKey("SenderId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Conversation");
 
@@ -677,8 +734,7 @@ namespace BloomyBE.Migrations
                     b.HasOne("Bloomy.Models.User", "Customer")
                         .WithMany("CustomerOrders")
                         .HasForeignKey("CustomerId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Bloomy.Models.EventType", "EventType")
                         .WithMany()
@@ -709,8 +765,7 @@ namespace BloomyBE.Migrations
                     b.HasOne("Bloomy.Models.User", "UpdatedBy")
                         .WithMany()
                         .HasForeignKey("UpdatedById")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Order");
 
@@ -760,8 +815,7 @@ namespace BloomyBE.Migrations
                     b.HasOne("Bloomy.Models.User", "Customer")
                         .WithMany()
                         .HasForeignKey("CustomerId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Bloomy.Models.Order", "Order")
                         .WithMany("Reviews")

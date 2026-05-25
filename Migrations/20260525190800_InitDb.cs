@@ -47,6 +47,28 @@ namespace BloomyBE.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "PaymentSettings",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false),
+                    QrImageUrl = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    AccountHolderName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    AccountNumber = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    BankName = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    TransferContentTemplate = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    MomoPhone = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    EnableMomo = table.Column<bool>(type: "bit", nullable: false),
+                    EnableQrCode = table.Column<bool>(type: "bit", nullable: false),
+                    EnableBankTransfer = table.Column<bool>(type: "bit", nullable: false),
+                    EnableVNPay = table.Column<bool>(type: "bit", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PaymentSettings", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Users",
                 columns: table => new
                 {
@@ -159,7 +181,13 @@ namespace BloomyBE.Migrations
                     DepositAmount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     Status = table.Column<int>(type: "int", nullable: false),
                     Notes = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    InternalNotes = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     CancellationReason = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    StatusBeforeRequest = table.Column<int>(type: "int", nullable: true),
+                    PreviousEventDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    PreviousSetupTime = table.Column<TimeSpan>(type: "time", nullable: true),
+                    PreviousAddress = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    PreviousDistrict = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
@@ -384,11 +412,6 @@ namespace BloomyBE.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
-            migrationBuilder.InsertData(
-                table: "BrandSettings",
-                columns: new[] { "Id", "AboutUs", "Address", "BannerUrl", "Description", "Email", "LogoUrl", "Phone", "ShopName" },
-                values: new object[] { 1, "", "", "", "", "", "", "", "" });
-
             migrationBuilder.CreateIndex(
                 name: "IX_ChatConversations_CustomerId",
                 table: "ChatConversations",
@@ -521,6 +544,9 @@ namespace BloomyBE.Migrations
 
             migrationBuilder.DropTable(
                 name: "Payments");
+
+            migrationBuilder.DropTable(
+                name: "PaymentSettings");
 
             migrationBuilder.DropTable(
                 name: "PortfolioImages");

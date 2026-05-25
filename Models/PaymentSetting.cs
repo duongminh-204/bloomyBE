@@ -1,10 +1,13 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Bloomy.Models
 {
     /// <summary>Singleton (Id = 1) — thông tin nhận tiền do Chủ tiệm quản lý.</summary>
     public class PaymentSetting
     {
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.None)]
         public int Id { get; set; } = 1;
 
         /// <summary>URL ảnh mã QR ngân hàng do Chủ tiệm upload.</summary>

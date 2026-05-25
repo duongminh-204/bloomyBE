@@ -28,6 +28,13 @@ namespace Bloomy.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<PaymentSetting>()
+                .ToTable("PaymentSettings")
+                .Property(p => p.Id)
+                .ValueGeneratedNever();   
+
+            modelBuilder.Entity<BrandSetting>()
+                .ToTable("BrandSettings");
 
             // Index
             modelBuilder.Entity<User>()
