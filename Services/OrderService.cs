@@ -7,12 +7,14 @@ using BloomyBE.Configuration;
 using BloomyBE.Helpers;
 using BloomyBE.Services.Interfaces;
 using Microsoft.Extensions.Options;
+using Bloomy.DTOs;
 
 namespace BloomyBE.Services
 {
     public class OrderService : IOrderService
     {
         private readonly IOrderRepository _orderRepo;
+        private readonly IPaymentSettingsService _paymentSettings;
         private readonly BookingSettings _settings;
 
         private static readonly Dictionary<OrderStatus, string> StatusLabels = new()
@@ -28,9 +30,10 @@ namespace BloomyBE.Services
             [OrderStatus.Rejected] = "Bị từ chối"
         };
 
-        public OrderService(IOrderRepository orderRepo, IOptions<BookingSettings> settings)
+        public OrderService(IOrderRepository orderRepo, IPaymentSettingsService paymentSettings, IOptions<BookingSettings> settings)
         {
             _orderRepo = orderRepo;
+            _paymentSettings = paymentSettings;
             _settings = settings.Value;
         }
 
@@ -142,6 +145,12 @@ namespace BloomyBE.Services
             if (!BookingValidator.IsValidServiceArea(order.Address, order.District, _settings, out _))
                 throw new InvalidOperationException("Địa chỉ không thuộc phạm vi phục vụ. Không thể thanh toán.");
 
+            if (order.Payments.Any(p => p.Status == "Pending"))
+                throw new InvalidOperationException("Bạn đã gửi xác nhận thanh toán. Vui lòng chờ Chủ tiệm kiểm tra.");
+
+            if (order.Payments.Any(p => p.Status == "Success"))
+                throw new InvalidOperationException("Đơn đã được xác nhận thanh toán đặt cọc.");
+
             var amount = dto.Amount > 0 ? dto.Amount : order.DepositAmount;
             if (amount < order.DepositAmount * 0.99m)
                 throw new InvalidOperationException($"Số tiền đặt cọc tối thiểu là {order.DepositAmount:N0} đ.");
@@ -151,7 +160,10 @@ namespace BloomyBE.Services
                 ? $"BLM{order.Id.ToString()[..8].ToUpperInvariant()}"
                 : dto.TransactionId.Trim();
 
-            var qrUrl = BuildQrCodeUrl(method, amount, order.OrderCode, transactionId);
+            var settings = await _paymentSettings.GetAsync();
+            var transferContent = _paymentSettings.BuildTransferContent(
+                settings.TransferContentTemplate, order.OrderCode, transactionId, amount);
+            var qrUrl = BuildQrCodeUrl(settings, method, amount, transferContent);
 
             var payment = new Payment
             {
@@ -159,22 +171,70 @@ namespace BloomyBE.Services
                 Amount = amount,
                 PaymentMethod = method,
                 TransactionId = transactionId,
-                Status = "Success",
+                Status = "Pending",
                 QrCodeUrl = qrUrl,
-                CreatedAt = DateTime.UtcNow,
-                PaidAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow
             };
 
             await _orderRepo.AddPaymentAsync(payment);
 
-            order.Status = OrderStatus.Confirmed;
             order.UpdatedAt = DateTime.UtcNow;
-            await AddStatusHistoryAsync(order, OrderStatus.Confirmed, customerId,
-                $"Khách hàng đã thanh toán đặt cọc {amount:N0} đ qua {method}. Mã GD: {transactionId}");
+            await AddStatusHistoryAsync(order, OrderStatus.WaitingDeposit, customerId,
+                $"Khách gửi xác nhận thanh toán {amount:N0} đ qua {method}. Nội dung/Mã GD: {transactionId}. Chờ Chủ tiệm kiểm tra.");
 
             await _orderRepo.SaveChangesAsync();
 
             return MapPayment(payment);
+        }
+
+        public async Task<PaymentDto> ConfirmPaymentAsync(Guid orderId, Guid paymentId, Guid shopOwnerId)
+        {
+            var payment = await _orderRepo.GetPaymentAsync(paymentId)
+                ?? throw new InvalidOperationException("Không tìm thấy giao dịch thanh toán.");
+
+            if (payment.OrderId != orderId)
+                throw new InvalidOperationException("Giao dịch không thuộc đơn hàng này.");
+
+            var order = payment.Order;
+            if (order.Status != OrderStatus.WaitingDeposit)
+                throw new InvalidOperationException("Đơn không ở trạng thái chờ xác nhận thanh toán.");
+
+            if (payment.Status != "Pending")
+                throw new InvalidOperationException("Giao dịch đã được xử lý.");
+
+            payment.Status = "Success";
+            payment.PaidAt = DateTime.UtcNow;
+
+            order.Status = OrderStatus.Confirmed;
+            order.ShopOwnerId = shopOwnerId;
+            order.UpdatedAt = DateTime.UtcNow;
+
+            await AddStatusHistoryAsync(order, OrderStatus.Confirmed, shopOwnerId,
+                $"Chủ tiệm xác nhận đã nhận đặt cọc {payment.Amount:N0} đ. Mã GD: {payment.TransactionId}");
+
+            await _orderRepo.SaveChangesAsync();
+            return MapPayment(payment);
+        }
+
+        public async Task<List<PendingPaymentOrderDto>> GetPendingPaymentConfirmationsAsync()
+        {
+            var orders = await _orderRepo.GetOrdersWithPendingPaymentsAsync();
+            return orders.Select(o =>
+            {
+                var p = o.Payments.First(x => x.Status == "Pending");
+                return new PendingPaymentOrderDto
+                {
+                    OrderId = o.Id,
+                    OrderCode = o.OrderCode,
+                    EventName = o.EventName,
+                    FullName = o.ContactFullName,
+                    DepositAmount = o.DepositAmount,
+                    PaymentId = p.Id,
+                    PaymentMethod = p.PaymentMethod,
+                    TransactionId = p.TransactionId,
+                    SubmittedAt = p.CreatedAt
+                };
+            }).ToList();
         }
 
         public async Task<OrderDto> RescheduleBookingAsync(Guid orderId, Guid customerId, RescheduleBookingDto dto)
@@ -274,6 +334,7 @@ namespace BloomyBE.Services
 
             var pending = await _orderRepo.GetPendingForShopOwnerAsync();
             var upcoming = await _orderRepo.GetUpcomingSetupsAsync();
+            var pendingPayments = await GetPendingPaymentConfirmationsAsync();
 
             var allRecent = upcoming;
             var todayCount = allRecent.Count(o => o.EventDate.Date == today);
@@ -288,8 +349,10 @@ namespace BloomyBE.Services
                 WeekOrders = weekCount,
                 MonthRevenue = monthRevenue,
                 PendingConfirmations = pending.Count,
+                PendingPaymentConfirmations = pendingPayments.Count,
                 PendingBookings = pending.Select(MapListItem).ToList(),
-                UpcomingSetups = upcoming.Select(MapListItem).ToList()
+                UpcomingSetups = upcoming.Select(MapListItem).ToList(),
+                PendingPayments = pendingPayments
             };
         }
 
@@ -590,15 +653,28 @@ namespace BloomyBE.Services
             _ => "BankTransfer"
         };
 
-        private static string BuildQrCodeUrl(string method, decimal amount, string orderCode, string transactionId)
+        private static string BuildQrCodeUrl(
+            PaymentSettingsDto settings,
+            string method,
+            decimal amount,
+            string transferContent)
         {
-            var note = Uri.EscapeDataString($"Bloomy_{orderCode}_{transactionId}");
+            var note = Uri.EscapeDataString(transferContent);
             var amt = (int)amount;
+            var account = settings.AccountNumber.Replace(" ", "");
+            var bank = settings.BankName;
+
+            if ((method is "QRCode" or "BankTransfer") && !string.IsNullOrWhiteSpace(settings.QrImageUrl))
+                return settings.QrImageUrl;
+
             return method switch
             {
-                "Momo" => $"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=momo://transfer?phone=0987654321&amount={amt}&note={note}",
-                "QRCode" => $"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=vietqr://payment?bank=MBBank&account=19028372615&amount={amt}&note={note}",
-                _ => $"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=transfer?amount={amt}&note={note}"
+                "Momo" when !string.IsNullOrWhiteSpace(settings.MomoPhone) =>
+                    $"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=momo://transfer?phone={settings.MomoPhone}&amount={amt}&note={note}",
+                "QRCode" =>
+                    $"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=vietqr://payment?bank={Uri.EscapeDataString(bank)}&account={account}&amount={amt}&note={note}",
+                _ =>
+                    $"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=transfer?account={account}&amount={amt}&note={note}"
             };
         }
     }

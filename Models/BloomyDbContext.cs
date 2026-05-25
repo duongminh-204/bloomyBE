@@ -23,6 +23,7 @@ namespace Bloomy.Data
         public DbSet<ChatConversation> ChatConversations { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
         public DbSet<BrandSetting> BrandSettings { get; set; }
+        public DbSet<PaymentSetting> PaymentSettings { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -20,5 +20,7 @@ namespace BloomyBE.Services.Interfaces
         Task ApproveReviewAsync(Guid reviewId, Guid shopOwnerId, bool approved);
         Task<object> ApproveConceptQuoteAsync(Guid conceptId, Guid customerId, decimal? quotedAmount);
         Task<OrderDto> GetBookingForShopOwnerAsync(Guid orderId);
+        Task<PaymentDto> ConfirmPaymentAsync(Guid orderId, Guid paymentId, Guid shopOwnerId);
+        Task<List<PendingPaymentOrderDto>> GetPendingPaymentConfirmationsAsync();
     }
 }

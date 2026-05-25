@@ -21,7 +21,9 @@ namespace Bloomy.Data.Interfaces
         Task AddOrderAsync(Order order);
         Task AddStatusHistoryAsync(OrderStatusHistory history);
         Task AddPaymentAsync(Payment payment);
+        Task<Payment?> GetPaymentAsync(Guid paymentId);
         Task AddReviewAsync(Review review);
+        Task<List<Order>> GetOrdersWithPendingPaymentsAsync();
         Task SaveChangesAsync();
     }
 }

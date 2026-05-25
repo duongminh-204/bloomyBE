@@ -1,3 +1,4 @@
+using Bloomy.DTOs;
 using Bloomy.DTOs.Orders;
 using BloomyBE.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -12,10 +13,12 @@ namespace BloomyBE.Controllers
     public class ShopOwnerController : ControllerBase
     {
         private readonly IOrderService _orderService;
+        private readonly IPaymentSettingsService _paymentSettings;
 
-        public ShopOwnerController(IOrderService orderService)
+        public ShopOwnerController(IOrderService orderService, IPaymentSettingsService paymentSettings)
         {
             _orderService = orderService;
+            _paymentSettings = paymentSettings;
         }
 
         private Guid GetUserId() =>
@@ -94,6 +97,79 @@ namespace BloomyBE.Controllers
         public IActionResult ChatWithCustomer(string customerId)
         {
             return Ok(new { message = "Chat endpoint (stub)", customerId });
+        }
+
+        [HttpGet("payment-settings")]
+        public async Task<IActionResult> GetPaymentSettings()
+        {
+            return Ok(await _paymentSettings.GetAsync());
+        }
+
+        [HttpPut("payment-settings")]
+        public async Task<IActionResult> UpdatePaymentSettings([FromBody] UpdatePaymentSettingsDto dto)
+        {
+            try
+            {
+                var result = await _paymentSettings.UpdateAsync(dto);
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("payment-settings/qr-upload")]
+        public async Task<IActionResult> UploadQrImage(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest(new { message = "Vui lòng chọn file ảnh QR." });
+
+            try
+            {
+                await using var stream = file.OpenReadStream();
+                var url = await _paymentSettings.SaveQrImageAsync(stream, file.FileName);
+                var current = await _paymentSettings.GetAsync();
+                var updated = await _paymentSettings.UpdateAsync(new UpdatePaymentSettingsDto
+                {
+                    QrImageUrl = url,
+                    AccountHolderName = current.AccountHolderName,
+                    AccountNumber = current.AccountNumber,
+                    BankName = current.BankName,
+                    TransferContentTemplate = current.TransferContentTemplate,
+                    MomoPhone = current.MomoPhone,
+                    EnableMomo = current.EnableMomo,
+                    EnableQrCode = current.EnableQrCode,
+                    EnableBankTransfer = current.EnableBankTransfer,
+                    EnableVNPay = current.EnableVNPay
+                });
+                return Ok(new { qrImageUrl = url, settings = updated });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("payments/pending")]
+        public async Task<IActionResult> PendingPayments()
+        {
+            var list = await _orderService.GetPendingPaymentConfirmationsAsync();
+            return Ok(list);
+        }
+
+        [HttpPost("booking/{orderId:guid}/payments/{paymentId:guid}/confirm")]
+        public async Task<IActionResult> ConfirmPayment(Guid orderId, Guid paymentId)
+        {
+            try
+            {
+                var result = await _orderService.ConfirmPaymentAsync(orderId, paymentId, GetUserId());
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
     }
 }

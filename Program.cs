@@ -112,6 +112,7 @@ builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IPaymentSettingsService, PaymentSettingsService>();
 
 // ==================== BUILD & MIDDLEWARE ====================
 var app = builder.Build();
@@ -135,7 +136,10 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<BloomyDbContext>();
+    try { await db.Database.MigrateAsync(); } catch { /* fallback: seeder tạo bảng nếu thiếu */ }
     await DatabaseSeeder.SeedAsync(db);
+    var paymentSettings = scope.ServiceProvider.GetRequiredService<IPaymentSettingsService>();
+    await paymentSettings.GetAsync();
 }
 
 app.Run();

@@ -155,6 +155,23 @@ namespace Bloomy.Data.Repositories
             await _context.Payments.AddAsync(payment);
         }
 
+        public async Task<Payment?> GetPaymentAsync(Guid paymentId)
+        {
+            return await _context.Payments
+                .Include(p => p.Order)
+                .FirstOrDefaultAsync(p => p.Id == paymentId);
+        }
+
+        public async Task<List<Order>> GetOrdersWithPendingPaymentsAsync()
+        {
+            return await _context.Orders
+                .Include(o => o.Payments)
+                .Where(o => o.Status == OrderStatus.WaitingDeposit
+                    && o.Payments.Any(p => p.Status == "Pending"))
+                .OrderByDescending(o => o.UpdatedAt ?? o.CreatedAt)
+                .ToListAsync();
+        }
+
         public async Task AddReviewAsync(Review review)
         {
             await _context.Reviews.AddAsync(review);

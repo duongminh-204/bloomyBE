@@ -126,7 +126,22 @@ namespace Bloomy.DTOs.Orders
         public int WeekOrders { get; set; }
         public decimal MonthRevenue { get; set; }
         public int PendingConfirmations { get; set; }
+        public int PendingPaymentConfirmations { get; set; }
         public List<OrderListItemDto> PendingBookings { get; set; } = new();
         public List<OrderListItemDto> UpcomingSetups { get; set; } = new();
+        public List<PendingPaymentOrderDto> PendingPayments { get; set; } = new();
+    }
+
+    public class PendingPaymentOrderDto
+    {
+        public Guid OrderId { get; set; }
+        public string OrderCode { get; set; } = string.Empty;
+        public string EventName { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+        public decimal DepositAmount { get; set; }
+        public Guid PaymentId { get; set; }
+        public string PaymentMethod { get; set; } = string.Empty;
+        public string TransactionId { get; set; } = string.Empty;
+        public DateTime SubmittedAt { get; set; }
     }
 }
