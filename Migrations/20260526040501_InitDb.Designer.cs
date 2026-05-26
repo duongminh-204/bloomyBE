@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BloomyBE.Migrations
 {
     [DbContext(typeof(BloomyDbContext))]
-    [Migration("20260525190800_InitDb")]
+    [Migration("20260526040501_InitDb")]
     partial class InitDb
     {
         /// <inheritdoc />
