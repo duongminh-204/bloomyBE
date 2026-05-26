@@ -173,6 +173,17 @@ namespace BloomyBE.Controllers
                 c.CreatedAt
             }));
         }
+
+        [HttpDelete("saved-concepts/{id:guid}")]
+        public async Task<IActionResult> DeleteSavedConcept(Guid id)
+        {
+            var concept = await _orderRepo.GetConceptAsync(id);
+            if (concept == null) return NotFound(new { message = "Concept không tồn tại." });
+            if (concept.CustomerId != GetUserId()) return Forbid();
+
+            await _orderRepo.DeleteConceptAsync(id);
+            return NoContent();
+        }
     }
 
     public class SaveConceptDto

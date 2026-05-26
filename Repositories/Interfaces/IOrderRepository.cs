@@ -20,6 +20,7 @@ namespace Bloomy.Data.Interfaces
         Task<EventType?> GetDefaultEventTypeAsync();
         Task<Concept> CreateConceptAsync(Concept concept);
         Task<List<Concept>> GetConceptsByCustomerAsync(Guid customerId);
+        Task DeleteConceptAsync(Guid conceptId);
         Task AddOrderAsync(Order order);
         Task AddStatusHistoryAsync(OrderStatusHistory history);
         Task AddPaymentAsync(Payment payment);

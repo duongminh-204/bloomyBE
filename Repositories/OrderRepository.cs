@@ -171,6 +171,14 @@ namespace Bloomy.Data.Repositories
                 .ToListAsync();
         }
 
+        public async Task DeleteConceptAsync(Guid conceptId)
+        {
+            var concept = await _context.Concepts.FirstOrDefaultAsync(c => c.Id == conceptId);
+            if (concept == null) return;
+            _context.Concepts.Remove(concept);
+            await _context.SaveChangesAsync();
+        }
+
         public async Task AddOrderAsync(Order order)
         {
             await _context.Orders.AddAsync(order);
