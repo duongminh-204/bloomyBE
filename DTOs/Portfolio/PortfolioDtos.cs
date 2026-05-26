@@ -1,3 +1,6 @@
+using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http;
+
 namespace Bloomy.DTOs.Portfolio
 {
     public class PortfolioImageDto
@@ -28,5 +31,18 @@ namespace Bloomy.DTOs.Portfolio
         public string EventTypeName { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
         public List<PortfolioImageDto> Images { get; set; } = new();
+    }
+
+    public class UpsertPortfolioDto
+    {
+        [Required, MaxLength(200)]
+        public string Title { get; set; } = string.Empty;
+
+        [MaxLength(5000)]
+        public string Description { get; set; } = string.Empty;
+
+        public int? EventTypeId { get; set; }
+
+        public List<IFormFile> Images { get; set; } = new();
     }
 }

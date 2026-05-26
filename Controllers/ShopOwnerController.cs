@@ -1,8 +1,12 @@
 using Bloomy.DTOs;
+using Bloomy.DTOs.Portfolio;
 using Bloomy.DTOs.Orders;
+using Bloomy.Data;
+using Bloomy.Models;
 using BloomyBE.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
 namespace BloomyBE.Controllers
@@ -12,13 +16,19 @@ namespace BloomyBE.Controllers
     [Authorize(Roles = "ShopOwner")]
     public class ShopOwnerController : ControllerBase
     {
+        private static readonly string[] AllowedImageExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".gif" };
+
         private readonly IOrderService _orderService;
         private readonly IPaymentSettingsService _paymentSettings;
+        private readonly BloomyDbContext _context;
+        private readonly IWebHostEnvironment _env;
 
-        public ShopOwnerController(IOrderService orderService, IPaymentSettingsService paymentSettings)
+        public ShopOwnerController(IOrderService orderService, IPaymentSettingsService paymentSettings, BloomyDbContext context, IWebHostEnvironment env)
         {
             _orderService = orderService;
             _paymentSettings = paymentSettings;
+            _context = context;
+            _env = env;
         }
 
         private Guid GetUserId() =>
@@ -228,6 +238,218 @@ namespace BloomyBE.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
+        }
+
+        [HttpGet("portfolios")]
+        public async Task<IActionResult> GetPortfolios([FromQuery] int? eventTypeId = null)
+        {
+            var query = _context.PortfolioItems
+                .AsNoTracking()
+                .Include(x => x.EventType)
+                .Include(x => x.Images)
+                .AsQueryable();
+
+            if (eventTypeId.HasValue)
+                query = query.Where(x => x.EventTypeId == eventTypeId.Value);
+
+            var items = await query
+                .OrderByDescending(x => x.CreatedAt)
+                .ToListAsync();
+
+            return Ok(items.Select(MapListItem).ToList());
+        }
+
+        [HttpGet("portfolios/{id:guid}")]
+        public async Task<IActionResult> GetPortfolio(Guid id)
+        {
+            var item = await LoadPortfolioAsync(id);
+            if (item == null)
+                return NotFound(new { message = "Không tìm thấy portfolio." });
+
+            return Ok(MapDetail(item));
+        }
+
+        [HttpPost("portfolios")]
+        public async Task<IActionResult> CreatePortfolio([FromForm] UpsertPortfolioDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Title))
+                return BadRequest(new { message = "Vui lòng nhập tiêu đề portfolio." });
+
+            var item = new PortfolioItem
+            {
+                Id = Guid.NewGuid(),
+                Title = dto.Title.Trim(),
+                Description = dto.Description?.Trim() ?? string.Empty,
+                EventTypeId = dto.EventTypeId,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.PortfolioItems.Add(item);
+
+            try
+            {
+                await SavePortfolioImagesAsync(item, dto.Images);
+                await _context.SaveChangesAsync();
+                return Ok(MapDetail(await LoadPortfolioAsync(item.Id) ?? item));
+            }
+            catch (InvalidOperationException ex)
+            {
+                _context.PortfolioItems.Remove(item);
+                await _context.SaveChangesAsync();
+                return BadRequest(new { message = ex.Message });
+            }
+            catch
+            {
+                _context.PortfolioItems.Remove(item);
+                await _context.SaveChangesAsync();
+                throw;
+            }
+        }
+
+        [HttpPut("portfolios/{id:guid}")]
+        public async Task<IActionResult> UpdatePortfolio(Guid id, [FromForm] UpsertPortfolioDto dto)
+        {
+            var item = await _context.PortfolioItems
+                .Include(x => x.Images)
+                .FirstOrDefaultAsync(x => x.Id == id);
+
+            if (item == null)
+                return NotFound(new { message = "Không tìm thấy portfolio." });
+
+            if (string.IsNullOrWhiteSpace(dto.Title))
+                return BadRequest(new { message = "Vui lòng nhập tiêu đề portfolio." });
+
+            item.Title = dto.Title.Trim();
+            item.Description = dto.Description?.Trim() ?? string.Empty;
+            item.EventTypeId = dto.EventTypeId;
+
+            var shouldReplaceImages = dto.Images?.Count > 0;
+            if (shouldReplaceImages)
+            {
+                foreach (var image in item.Images.ToList())
+                {
+                    DeleteFileIfExists(image.ImageUrl);
+                    _context.PortfolioImages.Remove(image);
+                }
+
+                await SavePortfolioImagesAsync(item, dto.Images);
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(MapDetail(await LoadPortfolioAsync(item.Id) ?? item));
+        }
+
+        [HttpDelete("portfolios/{id:guid}")]
+        public async Task<IActionResult> DeletePortfolio(Guid id)
+        {
+            var item = await _context.PortfolioItems
+                .Include(x => x.Images)
+                .FirstOrDefaultAsync(x => x.Id == id);
+
+            if (item == null)
+                return NotFound(new { message = "Không tìm thấy portfolio." });
+
+            foreach (var image in item.Images)
+                DeleteFileIfExists(image.ImageUrl);
+
+            _context.PortfolioItems.Remove(item);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Đã xóa portfolio." });
+        }
+
+        private async Task<PortfolioItem?> LoadPortfolioAsync(Guid id)
+        {
+            return await _context.PortfolioItems
+                .AsNoTracking()
+                .Include(x => x.EventType)
+                .Include(x => x.Images)
+                .FirstOrDefaultAsync(x => x.Id == id);
+        }
+
+        private async Task SavePortfolioImagesAsync(PortfolioItem item, List<IFormFile>? images)
+        {
+            if (images == null || images.Count == 0)
+                return;
+
+            var uploadRoot = Path.Combine(_env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"), "uploads", "portfolios", item.Id.ToString("N"));
+            Directory.CreateDirectory(uploadRoot);
+
+            var orderIndex = 0;
+            foreach (var image in images.Where(x => x != null && x.Length > 0))
+            {
+                var ext = Path.GetExtension(image.FileName).ToLowerInvariant();
+                if (!AllowedImageExtensions.Contains(ext))
+                    throw new InvalidOperationException("Chỉ hỗ trợ ảnh JPG, PNG, WEBP hoặc GIF.");
+
+                var fileName = $"{Guid.NewGuid():N}{ext}";
+                var fullPath = Path.Combine(uploadRoot, fileName);
+
+                await using (var fs = System.IO.File.Create(fullPath))
+                {
+                    await image.CopyToAsync(fs);
+                }
+
+                _context.PortfolioImages.Add(new PortfolioImage
+                {
+                    PortfolioItemId = item.Id,
+                    ImageUrl = $"/uploads/portfolios/{item.Id:N}/{fileName}",
+                    OrderIndex = orderIndex++
+                });
+            }
+        }
+
+        private void DeleteFileIfExists(string? imageUrl)
+        {
+            if (string.IsNullOrWhiteSpace(imageUrl))
+                return;
+
+            var normalized = imageUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+            var fullPath = Path.Combine(_env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"), normalized);
+            if (System.IO.File.Exists(fullPath))
+                System.IO.File.Delete(fullPath);
+        }
+
+        private static PortfolioListItemDto MapListItem(PortfolioItem item)
+        {
+            var orderedImages = item.Images.OrderBy(x => x.OrderIndex).ThenBy(x => x.Id).ToList();
+
+            return new PortfolioListItemDto
+            {
+                Id = item.Id,
+                Title = item.Title,
+                Description = item.Description,
+                EventTypeId = item.EventTypeId,
+                EventTypeName = item.EventType?.Name ?? string.Empty,
+                CoverImageUrl = orderedImages.FirstOrDefault()?.ImageUrl ?? string.Empty,
+                CreatedAt = item.CreatedAt,
+                ImageCount = orderedImages.Count
+            };
+        }
+
+        private static PortfolioDetailDto MapDetail(PortfolioItem item)
+        {
+            var orderedImages = item.Images
+                .OrderBy(image => image.OrderIndex)
+                .ThenBy(image => image.Id)
+                .Select(image => new PortfolioImageDto
+                {
+                    Id = image.Id,
+                    ImageUrl = image.ImageUrl,
+                    OrderIndex = image.OrderIndex
+                })
+                .ToList();
+
+            return new PortfolioDetailDto
+            {
+                Id = item.Id,
+                Title = item.Title,
+                Description = item.Description,
+                EventTypeId = item.EventTypeId,
+                EventTypeName = item.EventType?.Name ?? string.Empty,
+                CreatedAt = item.CreatedAt,
+                Images = orderedImages
+            };
         }
 
         [HttpGet("payments/pending")]
