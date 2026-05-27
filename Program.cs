@@ -36,33 +36,30 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        if (builder.Environment.IsDevelopment())
+        policy.SetIsOriginAllowed(origin =>
         {
-            policy
-                .SetIsOriginAllowed(origin =>
-                {
-                    if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
-                        return false;
+            if (string.IsNullOrWhiteSpace(origin))
+                return false;
 
-                    return uri.Host is "localhost"
-                        or "127.0.0.1"
-                        || uri.Host.StartsWith("192.168.")
-                        || uri.Host.StartsWith("10.");
-                })
-                .AllowAnyHeader()
-                .AllowAnyMethod()
-                .AllowCredentials();
-        }
-        else
-        {
-            policy
-                .WithOrigins(
-                    "https://bloomy-fe.vercel.app"
-                )
-                .AllowAnyHeader()
-                .AllowAnyMethod()
-                .AllowCredentials();
-        }
+            if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                return false;
+
+            // ================= DEVELOPMENT =================
+            if (builder.Environment.IsDevelopment())
+            {
+                return uri.Host is "localhost"
+                    or "127.0.0.1"
+                    || uri.Host.StartsWith("192.168.")
+                    || uri.Host.StartsWith("10.");
+            }
+
+            // ================= PRODUCTION =================
+            return uri.Host.Equals("bloomy-fe.vercel.app")
+                || uri.Host.Contains("vercel.app");
+        })
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials();
     });
 });
 
@@ -80,65 +77,56 @@ builder.Services.AddDbContext<BloomyDbContext>(options =>
 
 
 // ==================== COOKIE AUTH ====================
-
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
+.AddCookie(options =>
+{
+    options.LoginPath = "/api/auth/login";
+
+    options.Cookie.Name = "BloomyAuth";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.Path = "/";
+
+    if (builder.Environment.IsDevelopment())
     {
-        options.LoginPath = "/api/auth/login";
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.None;
+    }
+    else
+    {
+        options.Cookie.SameSite = SameSiteMode.None;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.Domain = ".onrender.com";
+    }
 
-        options.Cookie.Name = "BloomyAuth";
-        options.Cookie.HttpOnly = true;
-        options.Cookie.Path = "/";
+    options.ExpireTimeSpan = TimeSpan.FromDays(7);
 
-        // ================= DEVELOPMENT =================
-        if (builder.Environment.IsDevelopment())
+    options.Events = new CookieAuthenticationEvents
+    {
+        OnRedirectToLogin = ctx =>
         {
-            options.Cookie.SameSite =
-                Microsoft.AspNetCore.Http.SameSiteMode.Lax;
-
-            options.Cookie.SecurePolicy =
-                Microsoft.AspNetCore.Http.CookieSecurePolicy.None;
-        }
-        // ================= PRODUCTION =================
-        else
-        {
-            options.Cookie.SameSite =
-                Microsoft.AspNetCore.Http.SameSiteMode.None;
-
-            options.Cookie.SecurePolicy =
-                Microsoft.AspNetCore.Http.CookieSecurePolicy.Always;
-        }
-
-        options.ExpireTimeSpan = TimeSpan.FromDays(7);
-
-        // API trả về 401/403 thay vì redirect HTML
-        options.Events = new CookieAuthenticationEvents
-        {
-            OnRedirectToLogin = ctx =>
+            if (ctx.Request.Path.StartsWithSegments("/api"))
             {
-                if (ctx.Request.Path.StartsWithSegments("/api"))
-                {
-                    ctx.Response.StatusCode = 401;
-                    return Task.CompletedTask;
-                }
-
-                ctx.Response.Redirect(ctx.RedirectUri);
-                return Task.CompletedTask;
-            },
-
-            OnRedirectToAccessDenied = ctx =>
-            {
-                if (ctx.Request.Path.StartsWithSegments("/api"))
-                {
-                    ctx.Response.StatusCode = 403;
-                    return Task.CompletedTask;
-                }
-
-                ctx.Response.Redirect(ctx.RedirectUri);
+                ctx.Response.StatusCode = 401;
                 return Task.CompletedTask;
             }
-        };
-    });
+
+            ctx.Response.Redirect(ctx.RedirectUri);
+            return Task.CompletedTask;
+        },
+
+        OnRedirectToAccessDenied = ctx =>
+        {
+            if (ctx.Request.Path.StartsWithSegments("/api"))
+            {
+                ctx.Response.StatusCode = 403;
+                return Task.CompletedTask;
+            }
+
+            ctx.Response.Redirect(ctx.RedirectUri);
+            return Task.CompletedTask;
+        }
+    };
+});
 
 builder.Services.AddAuthorization();
 
