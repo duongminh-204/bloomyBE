@@ -29,6 +29,13 @@ namespace BloomyBE.Controllers
         [HttpPost("bookings")]
         public async Task<IActionResult> CreateBooking([FromBody] CreateBookingDto dto)
         {
+            // Log model state errors for debugging
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList();
+                return BadRequest(new { message = "Lỗi validate dữ liệu", errors });
+            }
+
             try
             {
                 var result = await _orderService.CreateBookingAsync(GetUserId(), dto);

@@ -10,7 +10,8 @@ namespace Bloomy.DTOs.Orders
         public string EventName { get; set; } = string.Empty;
         public int? EventTypeId { get; set; }
         public Guid? ConceptId { get; set; }
-        public DateTime EventDate { get; set; }
+        // Accept eventDate as string (YYYY-MM-DD format) and let service handle parsing
+        public string EventDate { get; set; } = string.Empty;
         public string SetupTime { get; set; } = string.Empty;
         public string Address { get; set; } = string.Empty;
         public string District { get; set; } = string.Empty;
@@ -28,7 +29,8 @@ namespace Bloomy.DTOs.Orders
 
     public class RescheduleBookingDto
     {
-        public DateTime NewEventDate { get; set; }
+        // Accept NewEventDate as string (YYYY-MM-DD format)
+        public string NewEventDate { get; set; } = string.Empty;
         public string NewSetupTime { get; set; } = string.Empty;
         public string NewAddress { get; set; } = string.Empty;
         public string NewDistrict { get; set; } = string.Empty;
@@ -66,7 +68,8 @@ namespace Bloomy.DTOs.Orders
 
     public class ShopOwnerRescheduleDto
     {
-        public DateTime EventDate { get; set; }
+        // Accept EventDate as string (YYYY-MM-DD format)
+        public string EventDate { get; set; } = string.Empty;
         public string SetupTime { get; set; } = string.Empty;
         public string Address { get; set; } = string.Empty;
         public string District { get; set; } = string.Empty;

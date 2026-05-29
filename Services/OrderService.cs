@@ -62,7 +62,8 @@ namespace BloomyBE.Services
             if (!BookingValidator.IsValidServiceArea(dto.Address, dto.District, _settings, out var areaError))
                 throw new InvalidOperationException(areaError);
 
-            var eventDate = dto.EventDate.Date;
+            // Parse eventDate from string (YYYY-MM-DD format)
+            var eventDate = ParseEventDate(dto.EventDate);
             if (!BookingValidator.IsFutureOrToday(eventDate, out var dateError))
                 throw new InvalidOperationException(dateError);
 
@@ -255,7 +256,8 @@ namespace BloomyBE.Services
             if (!BookingValidator.IsValidServiceArea(dto.NewAddress, dto.NewDistrict, _settings, out var areaError))
                 throw new InvalidOperationException(areaError);
 
-            var newDate = dto.NewEventDate.Date;
+            // Parse newEventDate from string (YYYY-MM-DD format)
+            var newDate = ParseEventDate(dto.NewEventDate);
             if (!BookingValidator.IsFutureOrToday(newDate, out var dateError))
                 throw new InvalidOperationException(dateError);
 
@@ -539,7 +541,8 @@ namespace BloomyBE.Services
             if (!BookingValidator.IsValidServiceArea(dto.Address, dto.District, _settings, out var areaError))
                 throw new InvalidOperationException(areaError);
 
-            var newDate = dto.EventDate.Date;
+            // Parse EventDate from string (YYYY-MM-DD format)
+            var newDate = ParseEventDate(dto.EventDate);
             if (!BookingValidator.IsFutureOrToday(newDate, out var dateError))
                 throw new InvalidOperationException(dateError);
 
@@ -843,11 +846,41 @@ namespace BloomyBE.Services
             PaidAt = p.PaidAt
         };
 
+        private static DateTime ParseEventDate(string eventDateString)
+        {
+            if (string.IsNullOrWhiteSpace(eventDateString))
+                throw new InvalidOperationException("Vui lòng chọn ngày sự kiện.");
+            
+            // Try to parse as ISO format (YYYY-MM-DD)
+            if (DateTime.TryParseExact(eventDateString.Trim(), "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsed))
+                return parsed.Date;
+            
+            // Try standard DateTime parse
+            if (DateTime.TryParse(eventDateString.Trim(), System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var result))
+                return result.Date;
+            
+            throw new InvalidOperationException($"Ngày sự kiện không hợp lệ: '{eventDateString}'. Vui lòng sử dụng định dạng YYYY-MM-DD.");
+        }
+
         private static TimeSpan ParseSetupTime(string setupTime)
         {
-            if (TimeSpan.TryParse(setupTime, out var ts))
+            if (string.IsNullOrWhiteSpace(setupTime))
+                throw new InvalidOperationException("Vui lòng nhập giờ setup.");
+            
+            // Try standard TimeSpan parse first (handles HH:MM:SS format)
+            if (TimeSpan.TryParse(setupTime.Trim(), out var ts))
                 return ts;
-            throw new InvalidOperationException("Giờ setup không hợp lệ.");
+            
+            // Try parsing time formats like "14:30" or "14:30:00" manually
+            var parts = setupTime.Trim().Split(':');
+            if (parts.Length >= 2 && int.TryParse(parts[0], out var hours) && int.TryParse(parts[1], out var minutes))
+            {
+                var seconds = parts.Length >= 3 && int.TryParse(parts[2], out var s) ? s : 0;
+                if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60 && seconds >= 0 && seconds < 60)
+                    return new TimeSpan(hours, minutes, seconds);
+            }
+            
+            throw new InvalidOperationException("Giờ setup không hợp lệ. Vui lòng nhập giờ ở định dạng HH:MM hoặc HH:MM:SS.");
         }
 
         private static string GenerateOrderCode()
