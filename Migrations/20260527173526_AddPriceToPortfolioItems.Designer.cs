@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BloomyBE.Migrations
 {
     [DbContext(typeof(BloomyDbContext))]
-    [Migration("20260527131453_UpdatePortfolioItemTable")]
-    partial class UpdatePortfolioItemTable
+    [Migration("20260527173526_AddPriceToPortfolioItems")]
+    partial class AddPriceToPortfolioItems
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
