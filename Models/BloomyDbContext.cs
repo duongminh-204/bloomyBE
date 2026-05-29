@@ -31,7 +31,7 @@ namespace Bloomy.Data
             modelBuilder.Entity<PaymentSetting>()
                 .ToTable("PaymentSettings")
                 .Property(p => p.Id)
-                .ValueGeneratedNever();   
+                .ValueGeneratedNever();
 
             modelBuilder.Entity<BrandSetting>()
                 .ToTable("BrandSettings");
@@ -46,17 +46,12 @@ namespace Bloomy.Data
                 .IsUnique();
 
             // ==================== CONCEPT - ORDER ====================
-            modelBuilder.Entity<Concept>()
-                .HasOne(c => c.Order)
-                .WithOne(o => o.Concept)
-                .HasForeignKey<Concept>(c => c.OrderId)
-                .OnDelete(DeleteBehavior.SetNull);
-
             modelBuilder.Entity<Order>()
                 .HasOne(o => o.Concept)
-                .WithOne(c => c.Order)
-                .HasForeignKey<Order>(o => o.ConceptId)
-                .OnDelete(DeleteBehavior.SetNull);
+                .WithMany()
+               .HasForeignKey(o => o.ConceptId)
+               .OnDelete(DeleteBehavior.SetNull)
+               .IsRequired(false);
 
 
             // User -> Order (Customer)
@@ -65,7 +60,7 @@ namespace Bloomy.Data
                 .WithMany(u => u.CustomerOrders)
                 .HasForeignKey(o => o.CustomerId)
                 .OnDelete(DeleteBehavior.Restrict)
-                .IsRequired(false);                    
+                .IsRequired(false);
 
             // User -> Order (ShopOwner)
             modelBuilder.Entity<Order>()
@@ -73,7 +68,7 @@ namespace Bloomy.Data
                 .WithMany(u => u.ManagedOrders)
                 .HasForeignKey(o => o.ShopOwnerId)
                 .OnDelete(DeleteBehavior.SetNull)
-                .IsRequired(false);                   
+                .IsRequired(false);
 
             // OrderStatusHistory
             modelBuilder.Entity<OrderStatusHistory>()
@@ -87,7 +82,7 @@ namespace Bloomy.Data
                 .WithMany()
                 .HasForeignKey(h => h.UpdatedById)
                 .OnDelete(DeleteBehavior.Restrict)
-                .IsRequired(false);                   
+                .IsRequired(false);
 
             // Payment
             modelBuilder.Entity<Payment>()
@@ -108,7 +103,7 @@ namespace Bloomy.Data
                 .WithMany()
                 .HasForeignKey(r => r.CustomerId)
                 .OnDelete(DeleteBehavior.Restrict)
-                .IsRequired(false);                   
+                .IsRequired(false);
 
             // ConceptImage
             modelBuilder.Entity<ConceptImage>()
@@ -130,14 +125,14 @@ namespace Bloomy.Data
                 .WithMany(u => u.ConversationsAsCustomer)
                 .HasForeignKey(cc => cc.CustomerId)
                 .OnDelete(DeleteBehavior.Restrict)
-                .IsRequired(false);                    
+                .IsRequired(false);
 
             modelBuilder.Entity<ChatConversation>()
                 .HasOne(cc => cc.ShopOwner)
                 .WithMany(u => u.ConversationsAsShopOwner)
                 .HasForeignKey(cc => cc.ShopOwnerId)
                 .OnDelete(DeleteBehavior.Restrict)
-                .IsRequired(false);                    
+                .IsRequired(false);
 
             modelBuilder.Entity<ChatConversation>()
                 .HasOne(cc => cc.Order)
@@ -157,7 +152,7 @@ namespace Bloomy.Data
                 .WithMany()
                 .HasForeignKey(cm => cm.SenderId)
                 .OnDelete(DeleteBehavior.Restrict)
-                .IsRequired(false);                    
+                .IsRequired(false);
 
             // ServicePackage -> EventType
             modelBuilder.Entity<ServicePackage>()
