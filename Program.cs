@@ -211,23 +211,35 @@ app.MapHub<AIHub>("/api/aihub");
 // ==================== DATABASE MIGRATION ====================
 using (var scope = app.Services.CreateScope())
 {
-   var db = scope.ServiceProvider.GetRequiredService<BloomyDbContext>();
+    var db = scope.ServiceProvider.GetRequiredService<BloomyDbContext>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-    try
-    {       await db.Database.MigrateAsync();
 
-        logger.LogInformation("Database migrations applied successfully.");
+    try
+    {
+        logger.LogInformation("STEP 1 - Starting migration");
+
+        await db.Database.MigrateAsync();
+
+        logger.LogInformation("STEP 2 - Migration completed");
+
+        logger.LogInformation("STEP 3 - Starting seed");
+
+        await DatabaseSeeder.SeedAsync(db);
+
+        logger.LogInformation("STEP 4 - Seed completed");
+
+        var paymentSettings =
+            scope.ServiceProvider.GetRequiredService<IPaymentSettingsService>();
+
+        logger.LogInformation("STEP 5 - Loading payment settings");
+
+        await paymentSettings.GetAsync();
+
+        logger.LogInformation("STEP 6 - Payment settings loaded");
     }
     catch (Exception ex)
     {
-        logger.LogError(
-            ex,
-            "EF migration failed. Run: dotnet ef database update --project BloomyBE"
-        );
+        logger.LogError(ex, "STARTUP ERROR");
+        throw;
     }
-    await DatabaseSeeder.SeedAsync(db);
-    var paymentSettings =
-        scope.ServiceProvider.GetRequiredService<IPaymentSettingsService>();
-    await paymentSettings.GetAsync();
 }
-app.Run();
