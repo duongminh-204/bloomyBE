@@ -12,7 +12,7 @@ using System.Security.Claims;
 namespace BloomyBE.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/shopowner")]
     [Authorize(Roles = "ShopOwner")]
     public class ShopOwnerController : ControllerBase
     {
