@@ -218,7 +218,7 @@ using (var scope = app.Services.CreateScope())
     {
         logger.LogInformation("STEP 1 - Starting migration");
 
-        //await db.Database.MigrateAsync();
+        await db.Database.MigrateAsync();
 
         logger.LogInformation("STEP 2 - Migration completed");
 
