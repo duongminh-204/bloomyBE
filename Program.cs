@@ -243,3 +243,5 @@ using (var scope = app.Services.CreateScope())
         throw;
     }
 }
+
+app.Run();
