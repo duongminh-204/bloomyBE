@@ -7,7 +7,7 @@ using System.Text;
 
 namespace BloomyBE.Hubs
 {
-    [Authorize(Roles = "Customer")]
+    [Authorize]
     public class AIHub : Hub
     {
         private readonly IAIService _aiService;
