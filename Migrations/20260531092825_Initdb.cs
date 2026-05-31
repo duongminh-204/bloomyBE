@@ -6,11 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace BloomyBE.Migrations
 {
     /// <inheritdoc />
-<<<<<<<< HEAD:Migrations/20260530061505_InitDb.cs
-    public partial class InitDb : Migration
-========
-    public partial class db : Migration
->>>>>>>> 2239dfc5aaaf8654a30519da9cd904be991635a0:Migrations/20260529173843_db.cs
+    public partial class Initdb : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -97,7 +93,7 @@ namespace BloomyBE.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     Title = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     Status = table.Column<int>(type: "int", nullable: false),
                     GatheredRequirementsJson = table.Column<string>(type: "nvarchar(max)", nullable: false),
@@ -122,7 +118,7 @@ namespace BloomyBE.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     UsageType = table.Column<int>(type: "int", nullable: false),
                     RequestCount = table.Column<int>(type: "int", nullable: false),
                     TokensUsed = table.Column<int>(type: "int", nullable: true),
@@ -150,7 +146,7 @@ namespace BloomyBE.Migrations
                     LogoUrl = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
                     Address = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
                     PhoneNumber = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
-                    OwnerId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    OwnerId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
@@ -193,7 +189,7 @@ namespace BloomyBE.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     ConversationId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     Description = table.Column<string>(type: "nvarchar(max)", nullable: false),
@@ -731,7 +727,8 @@ namespace BloomyBE.Migrations
                 name: "IX_Shops_OwnerId",
                 table: "Shops",
                 column: "OwnerId",
-                unique: true);
+                unique: true,
+                filter: "[OwnerId] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Users_Email",

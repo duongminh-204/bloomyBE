@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BloomyBE.Migrations
 {
     [DbContext(typeof(BloomyDbContext))]
-    [Migration("20260530070818_OptionalUserForeignKeys")]
-    partial class OptionalUserForeignKeys
+    [Migration("20260531092825_Initdb")]
+    partial class Initdb
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
